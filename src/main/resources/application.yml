@@ -1,0 +1,18 @@
+server:
+  port: 8001
+---
+# Spring
+spring:
+  threads:
+    virtual:
+      enabled: true
+  docker:
+    compose:
+      enabled: false
+  application:
+    name: bean-book
+
+---
+# Vaadin
+vaadin:
+  launch-browser: true

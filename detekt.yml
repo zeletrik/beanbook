@@ -1,0 +1,60 @@
+complexity:
+  CyclomaticComplexMethod:
+    threshold: 20
+  LongMethod:
+    threshold: 80
+  LongParameterList:
+    functionThreshold: 8
+    constructorThreshold: 8
+  TooManyFunctions:
+    thresholdInClasses: 20
+    thresholdInObjects: 20
+    thresholdInFiles: 30
+
+style:
+  MagicNumber:
+    ignoreNumbers:
+      - '-1'
+      - '0'
+      - '1'
+      - '2'
+      - '3'
+      - '4'
+      - '5'
+      - '10'
+      - '100'
+    ignorePropertyDeclaration: true
+    ignoreAnnotation: true
+    ignoreEnums: true
+    ignoreLocalVariableDeclaration: true
+    ignoreConstantDeclaration: true
+  MaxLineLength:
+    maxLineLength: 160
+  WildcardImport:
+    active: false
+  ForbiddenComment:
+    active: false
+  ReturnCount:
+    max: 4
+
+naming:
+  FunctionNaming:
+    functionPattern: '[a-zA-Z][a-zA-Z0-9]*|`[^`]+`'
+  VariableNaming:
+    variablePattern: '[a-z][A-Za-z0-9]*'
+
+comments:
+  UndocumentedPublicClass:
+    active: false
+  UndocumentedPublicFunction:
+    active: false
+  UndocumentedPublicProperty:
+    active: false
+
+exceptions:
+  TooGenericExceptionCaught:
+    active: false
+
+performance:
+  SpreadOperator:
+    active: false
