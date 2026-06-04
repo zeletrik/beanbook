@@ -8,6 +8,7 @@ import eu.zeletrik.beanbook.beans.BeanPurchase
 import eu.zeletrik.beanbook.beans.BeanPurchaseService
 import eu.zeletrik.beanbook.beans.Process
 import eu.zeletrik.beanbook.beans.RoastLevel
+import eu.zeletrik.beanbook.TestBeanPurchaseRepository
 import eu.zeletrik.beanbook.beans.internal.BeanPurchaseRepository
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -27,7 +28,7 @@ class PurchaseFormValidationTest {
     fun setup() {
         MockVaadin.setup()
         repo = TestRepository()
-        view = MainView(BeanPurchaseService(repo), AnalyticsService())
+        view = MainView(BeanPurchaseService(repo, repo), AnalyticsService())
         view.navigateTo(1)  // make Add page visible
         addForm = view.addFormContent
     }
@@ -161,12 +162,4 @@ class PurchaseFormValidationTest {
     }
 }
 
-private class TestRepository : BeanPurchaseRepository {
-    private val store = mutableListOf<BeanPurchase>()
-    override fun findAll() = store.toList()
-    override fun save(purchase: BeanPurchase) = purchase.also {
-        val i = store.indexOfFirst { it.id == purchase.id }
-        if (i >= 0) store[i] = purchase else store.add(purchase)
-    }
-    override fun delete(id: UUID) { store.removeIf { it.id == id } }
-}
+private class TestRepository : TestBeanPurchaseRepository()

@@ -7,6 +7,7 @@ import eu.zeletrik.beanbook.beans.BeanPurchase
 import eu.zeletrik.beanbook.beans.BeanPurchaseService
 import eu.zeletrik.beanbook.beans.Process
 import eu.zeletrik.beanbook.beans.RoastLevel
+import eu.zeletrik.beanbook.TestBeanPurchaseRepository
 import eu.zeletrik.beanbook.beans.internal.BeanPurchaseRepository
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -28,7 +29,7 @@ class DuplicateTest {
     fun setup() {
         MockVaadin.setup()
         repo = DuplicateTestRepository()
-        view = MainView(BeanPurchaseService(repo), AnalyticsService())
+        view = MainView(BeanPurchaseService(repo, repo), AnalyticsService())
     }
 
     @AfterEach
@@ -153,7 +154,7 @@ class DuplicateTest {
 
         // Delete the duplicate (the one that is NOT the source)
         val duplicate = allAfterSave.first { it.id != source.id }
-        repo.delete(duplicate.id)
+        repo.deleteById(duplicate.id)
 
         // Source still present
         assertTrue(repo.findAll().any { it.id == source.id })
@@ -161,12 +162,4 @@ class DuplicateTest {
     }
 }
 
-private class DuplicateTestRepository : BeanPurchaseRepository {
-    private val store = mutableListOf<BeanPurchase>()
-    override fun findAll() = store.toList()
-    override fun save(purchase: BeanPurchase) = purchase.also {
-        val i = store.indexOfFirst { it.id == purchase.id }
-        if (i >= 0) store[i] = purchase else store.add(purchase)
-    }
-    override fun delete(id: UUID) { store.removeIf { it.id == id } }
-}
+private class DuplicateTestRepository : TestBeanPurchaseRepository()

@@ -1,6 +1,7 @@
 [versions]
 kotlin = "2.2.21"
 detekt = "1.23.8"
+sqlite-jdbc = "3.53.1.0"
 spring-boot = "4.0.6"
 spring-dependency-management = "1.1.7"
 vaadin = "25.1.6"
@@ -22,6 +23,9 @@ spring-modulith-bom = { module = "org.springframework.modulith:spring-modulith-b
 jackson-module-kotlin = { module = "tools.jackson.module:jackson-module-kotlin" }
 junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
 karibu-testing = { module = "com.github.mvysny.kaributesting:karibu-testing-v24", version = "2.7.0" }
+sqlite-jdbc = { module = "org.xerial:sqlite-jdbc", version.ref = "sqlite-jdbc" }
+spring-boot-starter-data-jdbc = { module = "org.springframework.boot:spring-boot-starter-data-jdbc" }
+spring-boot-starter-liquibase = { module = "org.springframework.boot:spring-boot-starter-liquibase" }
 
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }

@@ -6,6 +6,7 @@ import eu.zeletrik.beanbook.beans.BeanPurchase
 import eu.zeletrik.beanbook.beans.BeanPurchaseService
 import eu.zeletrik.beanbook.beans.Process
 import eu.zeletrik.beanbook.beans.RoastLevel
+import eu.zeletrik.beanbook.TestBeanPurchaseRepository
 import eu.zeletrik.beanbook.beans.internal.BeanPurchaseRepository
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -30,13 +31,10 @@ class MainViewTest {
     )
 
     private fun makeView(items: List<BeanPurchase>): MainView {
-        val repo = object : BeanPurchaseRepository {
-            private val store = items.toMutableList()
-            override fun findAll() = store.toList()
-            override fun save(p: BeanPurchase) = p.also { store.add(it) }
-            override fun delete(id: UUID) { store.removeIf { it.id == id } }
+        val repo = object : TestBeanPurchaseRepository() {
+            init { store.addAll(items) }
         }
-        return MainView(BeanPurchaseService(repo), AnalyticsService())
+        return MainView(BeanPurchaseService(repo, repo), AnalyticsService())
     }
 
     // AC-1: cards show all entries

@@ -11,6 +11,13 @@ spring:
       enabled: false
   application:
     name: bean-book
+  datasource:
+    url: jdbc:sqlite:./beanbook.db?journal_mode=WAL
+    driver-class-name: org.sqlite.JDBC
+    hikari:
+      maximum-pool-size: 1
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.yaml
 
 ---
 # Vaadin

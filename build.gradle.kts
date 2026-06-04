@@ -33,6 +33,9 @@ dependencies {
     testImplementation(libs.spring.modulith.starter.test)
     testRuntimeOnly(libs.junit.platform.launcher)
     testImplementation(libs.karibu.testing)
+    implementation(libs.spring.boot.starter.data.jdbc)
+    runtimeOnly(libs.sqlite.jdbc)
+    implementation(libs.spring.boot.starter.liquibase)
 }
 
 dependencyManagement {

@@ -44,3 +44,4 @@ src/main/frontend/generated/
 /spec/
 /.claude/
 /target
+/beanbook.db
