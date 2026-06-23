@@ -1,8 +1,8 @@
 package eu.zeletrik.beanbook
 
 import eu.zeletrik.beanbook.beans.BeanPurchaseService
-import eu.zeletrik.beanbook.beans.ImportResult
-import eu.zeletrik.beanbook.beans.ImportService
+import eu.zeletrik.beanbook.backup.ImportResult
+import eu.zeletrik.beanbook.backup.ImportService
 import eu.zeletrik.beanbook.wishlist.WishlistItem
 import eu.zeletrik.beanbook.wishlist.WishlistService
 import org.springframework.jdbc.core.JdbcTemplate
@@ -17,12 +17,12 @@ import java.util.UUID
 class TestImportService : ImportService(
     run {
         val repo = object : TestBeanPurchaseRepository() {}
-        BeanPurchaseService(repo, repo)
+        BeanPurchaseService(repo)
     },
-    object : WishlistService(JdbcTemplate()) {
+    object : WishlistService(TestWishlistRepository()) {
         override fun findAll() = emptyList<WishlistItem>()
-        override fun upsert(item: WishlistItem) {}
-        override fun deleteById(id: UUID) {}
+        override fun upsert(item: WishlistItem) = Unit
+        override fun deleteById(id: UUID) = Unit
     },
     jacksonObjectMapper(),
 ) {

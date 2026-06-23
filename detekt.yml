@@ -1,15 +1,15 @@
 complexity:
   CyclomaticComplexMethod:
-    threshold: 20
+    allowedComplexity: 20
   LongMethod:
-    threshold: 80
+    allowedLines: 80
   LongParameterList:
-    functionThreshold: 8
-    constructorThreshold: 8
+    allowedFunctionParameters: 8
+    allowedConstructorParameters: 8
   TooManyFunctions:
-    thresholdInClasses: 20
-    thresholdInObjects: 20
-    thresholdInFiles: 30
+    allowedFunctionsPerClass: 20
+    allowedFunctionsPerObject: 20
+    allowedFunctionsPerFile: 30
 
 style:
   MagicNumber:
@@ -42,6 +42,8 @@ naming:
     functionPattern: '[a-zA-Z][a-zA-Z0-9]*|`[^`]+`'
   VariableNaming:
     variablePattern: '[a-z][A-Za-z0-9]*'
+  ObjectPropertyNaming:
+    propertyPattern: '[_A-Za-z][_A-Za-z0-9]*'
 
 comments:
   UndocumentedPublicClass:

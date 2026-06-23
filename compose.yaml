@@ -1,22 +1,11 @@
-# Bean Book — homelab Docker deployment
-#
-# The database file lives on a named volume at /data/beanbook.db inside the container.
-# SPRING_DATASOURCE_URL must point to that path; changing the value redeploys against a
-# different file without any code change (AC-16, AC-17).
-#
-# Build the image first:
-#   ./gradlew bootBuildImage --imageName=beanbook:latest
-#
-# Then start:
-#   docker compose up -d
-
+# Example Docker compose file to run the service
 services:
   beanbook:
-    image: beanbook:latest
+    image: zeletrik/beanbook:latest
     ports:
-      - "8080:8080"
+      - "8001:8001"
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:sqlite:/data/beanbook.db?journal_mode=WAL
+      - DATASOURCE_PATH=/data/beanbook.db
     volumes:
       - beanbook-data:/data
 

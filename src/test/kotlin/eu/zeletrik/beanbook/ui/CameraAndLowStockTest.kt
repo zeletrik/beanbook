@@ -5,7 +5,7 @@ import eu.zeletrik.beanbook.analytics.AnalyticsService
 import eu.zeletrik.beanbook.beans.BagState
 import eu.zeletrik.beanbook.beans.BeanPurchase
 import eu.zeletrik.beanbook.beans.BeanPurchaseService
-import eu.zeletrik.beanbook.beans.ExportService
+import eu.zeletrik.beanbook.backup.ExportService
 import tools.jackson.module.kotlin.jacksonObjectMapper
 import eu.zeletrik.beanbook.beans.Process
 import eu.zeletrik.beanbook.beans.RoastLevel
@@ -21,6 +21,7 @@ import java.math.BigDecimal
 import java.time.LocalDate
 import java.util.UUID
 
+/** Verifies the image-upload picker behaviour and the low-stock banner visibility rules in [MainView]. */
 class CameraAndLowStockTest {
 
     private lateinit var repo: LowStockTestRepository
@@ -30,7 +31,7 @@ class CameraAndLowStockTest {
     fun setup() {
         MockVaadin.setup()
         repo = LowStockTestRepository()
-        view = MainView(BeanPurchaseService(repo, repo), AnalyticsService(), ExportService(BeanPurchaseService(repo, repo), object : eu.zeletrik.beanbook.wishlist.WishlistService(org.springframework.jdbc.core.JdbcTemplate()) { override fun findAll() = emptyList<eu.zeletrik.beanbook.wishlist.WishlistItem>() }, jacksonObjectMapper()), eu.zeletrik.beanbook.TestImportService(), eu.zeletrik.beanbook.TestPreferencesService(), eu.zeletrik.beanbook.TestWishlistService())
+        view = testMainView(repo)
     }
 
     @AfterEach
@@ -41,7 +42,7 @@ class CameraAndLowStockTest {
         val finished = if (state == BagState.FINISHED) LocalDate.of(2025, 3, 1) else null
         return BeanPurchase(
             id = UUID.randomUUID(), name = name, roaster = "R", origin = "E",
-            pricePerUnit = BigDecimal("10.00"), weightGrams = 250,
+            price = BigDecimal("10.00"), weightGrams = 250,
             purchaseDate = LocalDate.of(2025, 1, 1), roastDate = LocalDate.of(2024, 12, 28),
             roastLevel = RoastLevel.MEDIUM, process = Process.WASHED,
             openedDate = opened, finishedDate = finished,
@@ -53,7 +54,7 @@ class CameraAndLowStockTest {
     // (Take Photo + Photo Library + Files) rather than forcing camera-only
     @Test
     fun `upload component has no capture attribute so iOS shows full file picker`() {
-        view.navigateTo(2)
+        view.navigateTo(AppTab.ADD)
         val capture = view.addFormContent.uploadComponent.element.getAttribute("capture")
         assertTrue(capture == null || capture.isEmpty(),
             "capture attribute must be absent to allow gallery selection on iOS")

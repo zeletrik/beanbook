@@ -9,29 +9,35 @@ plugins {
     alias(libs.plugins.spring.boot)
     alias(libs.plugins.spring.dependency.management)
     alias(libs.plugins.vaadin)
-    alias(libs.plugins.graalvm.toolkit)
 }
 repositories {
     mavenCentral()
 }
 
 dependencies {
-    implementation(libs.spring.boot.starter.webmvc)
-    developmentOnly(libs.vaadin.dev)
-    implementation(libs.vaadin.spring.boot.starter)
+    // Core
     implementation(libs.kotlin.reflect)
+
+    implementation(libs.spring.boot.starter.webmvc)
+    implementation(libs.vaadin.spring.boot.starter)
     implementation(libs.spring.modulith.starter.core)
     implementation(libs.jackson.module.kotlin)
-    developmentOnly(libs.spring.boot.devtools)
-    developmentOnly(libs.spring.boot.docker.compose)
+
+    // Data
+    implementation(libs.spring.boot.starter.data.jdbc)
+    runtimeOnly(libs.sqlite.jdbc)
+    implementation(libs.spring.boot.starter.liquibase)
+
+    // Test
     testImplementation(libs.spring.boot.starter.webmvc.test)
     testImplementation(libs.kotlin.test.junit5)
     testImplementation(libs.spring.modulith.starter.test)
     testRuntimeOnly(libs.junit.platform.launcher)
     testImplementation(libs.karibu.testing)
-    implementation(libs.spring.boot.starter.data.jdbc)
-    runtimeOnly(libs.sqlite.jdbc)
-    implementation(libs.spring.boot.starter.liquibase)
+
+    // Development
+    developmentOnly(libs.spring.boot.devtools)
+    developmentOnly(libs.vaadin.dev)
 }
 
 kotlin {
@@ -41,9 +47,12 @@ kotlin {
     }
 }
 
-tasks.withType<Test> {
-    useJUnitPlatform()
+tasks {
+    test {
+        useJUnitPlatform()
+    }
 }
+
 
 detekt {
     config.setFrom(file("detekt.yml"))

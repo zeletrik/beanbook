@@ -6,16 +6,18 @@ spring:
   threads:
     virtual:
       enabled: true
-  docker:
-    compose:
-      enabled: false
   application:
     name: bean-book
   datasource:
-    url: jdbc:sqlite:./beanbook.db?journal_mode=WAL
+    url: jdbc:sqlite:${DATASOURCE_PATH:./beanbook.db}?journal_mode=WAL
     driver-class-name: org.sqlite.JDBC
     hikari:
+      # Single connection serialises all SQLite access (it is a single-writer store). With virtual
+      # threads a blocked writer must not wait Hikari's 30s default, and SQLite must wait for its own
+      # lock rather than failing fast — hence the explicit timeouts + busy_timeout.
       maximum-pool-size: 1
+      connection-timeout: 5000
+      connection-init-sql: "PRAGMA busy_timeout=5000"
   liquibase:
     change-log: classpath:db/changelog/db.changelog-master.yaml
 

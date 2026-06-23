@@ -2,16 +2,15 @@ package eu.zeletrik.beanbook
 
 import eu.zeletrik.beanbook.wishlist.WishlistItem
 import eu.zeletrik.beanbook.wishlist.WishlistService
-import org.springframework.jdbc.core.JdbcTemplate
-import java.util.UUID
 
 /**
- * In-memory WishlistService stub for Karibu / unit tests.
- * kotlin-spring makes WishlistService open.
+ * The real [WishlistService] backed by an in-memory [TestWishlistRepository] — so tests exercise the
+ * actual service logic. [store] exposes the backing list for direct seeding/inspection.
  */
-class TestWishlistService : WishlistService(JdbcTemplate()) {
-    val store = mutableListOf<WishlistItem>()
-    override fun findAll() = store.toList()
-    override fun upsert(item: WishlistItem) { store.removeIf { it.id == item.id }; store.add(item) }
-    override fun deleteById(id: UUID) { store.removeIf { it.id == id } }
+class TestWishlistService private constructor(
+    private val repo: TestWishlistRepository,
+) : WishlistService(repo) {
+    constructor() : this(TestWishlistRepository())
+
+    val store: MutableList<WishlistItem> get() = repo.store
 }

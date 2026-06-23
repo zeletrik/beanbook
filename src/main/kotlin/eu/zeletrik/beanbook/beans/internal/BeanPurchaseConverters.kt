@@ -1,5 +1,6 @@
 package eu.zeletrik.beanbook.beans.internal
 
+import eu.zeletrik.beanbook.beans.BrewTarget
 import eu.zeletrik.beanbook.beans.Process
 import eu.zeletrik.beanbook.beans.RoastLevel
 import eu.zeletrik.beanbook.beans.RoastProfile
@@ -8,7 +9,9 @@ import org.springframework.context.annotation.Configuration
 import org.springframework.core.convert.converter.Converter
 import org.springframework.data.convert.ReadingConverter
 import org.springframework.data.convert.WritingConverter
+import org.springframework.data.convert.CustomConversions.StoreConversions
 import org.springframework.data.jdbc.core.convert.JdbcCustomConversions
+import org.springframework.data.jdbc.core.mapping.JdbcSimpleTypes
 import org.springframework.data.jdbc.core.dialect.JdbcArrayColumns
 import org.springframework.data.jdbc.core.dialect.JdbcDialect
 import org.springframework.data.relational.core.dialect.AnsiDialect
@@ -79,19 +82,32 @@ class StringToRoastProfileConverter : Converter<String, RoastProfile> {
 }
 
 @WritingConverter
-class TagListToStringConverter : Converter<List<String>, String?> {
-    override fun convert(source: List<String>): String? =
+class BrewTargetToStringConverter : Converter<BrewTarget, String> {
+    override fun convert(source: BrewTarget): String = source.name
+}
+
+@ReadingConverter
+class StringToBrewTargetConverter : Converter<String, BrewTarget> {
+    override fun convert(source: String): BrewTarget = BrewTarget.valueOf(source)
+}
+
+@WritingConverter
+class TagSetToStringConverter : Converter<Set<String>, String?> {
+    override fun convert(source: Set<String>): String? =
         source.joinToString(",").takeIf { source.isNotEmpty() }
 }
 
 @ReadingConverter
-class StringToTagListConverter : Converter<String, List<String>> {
-    override fun convert(source: String): List<String> =
-        source.split(",").map { it.trim() }.filter { it.isNotBlank() }
+class StringToTagSetConverter : Converter<String, Set<String>> {
+    override fun convert(source: String): Set<String> =
+        source.split(",").map { it.trim() }.filter { it.isNotBlank() }.toCollection(LinkedHashSet())
 }
 
-// SQLite has no built-in dialect in Spring Data JDBC — provide AnsiDialect as the base.
-// Must override getArraySupport() to resolve the ambiguity between AnsiDialect and JdbcDialect.
+/**
+ * JDBC dialect for SQLite, which has no built-in dialect in Spring Data JDBC — provides [AnsiDialect] as the base.
+ *
+ * Overrides [getArraySupport] to resolve the ambiguity between [AnsiDialect] and [JdbcDialect].
+ */
 class SqliteJdbcDialect : AnsiDialect(), JdbcDialect {
     override fun getArraySupport(): JdbcArrayColumns = JdbcArrayColumns.Unsupported.INSTANCE
 }
@@ -103,22 +119,37 @@ class BeanPurchaseConverters {
     fun jdbcDialect(): JdbcDialect = SqliteJdbcDialect()
 
     @Bean
-    fun jdbcCustomConversions(): JdbcCustomConversions = JdbcCustomConversions(
-        listOf(
-            BigDecimalToStringConverter(),
-            StringToBigDecimalConverter(),
-            LocalDateToStringConverter(),
-            StringToLocalDateConverter(),
-            UuidToStringConverter(),
-            StringToUuidConverter(),
-            RoastLevelToStringConverter(),
-            StringToRoastLevelConverter(),
-            ProcessToStringConverter(),
-            StringToProcessConverter(),
-            RoastProfileToStringConverter(),
-            StringToRoastProfileConverter(),
-            TagListToStringConverter(),
-            StringToTagListConverter(),
+    fun jdbcCustomConversions(): JdbcCustomConversions {
+        // Spring Data JDBC's default JSR-310 store converters register a LocalDate -> java.sql.Timestamp
+        // writer. Because a LocalDate property's resolved column type is Timestamp (JdbcColumnTypes maps
+        // every Temporal to Timestamp), MappingRelationalConverter.determineCustomWriteTarget finds the
+        // exact (LocalDate, Timestamp) store pair first and never falls back to our LocalDate -> String
+        // converter — so SQLite ends up storing epoch millis. Drop the store converters that touch
+        // LocalDate so our String converters win, while keeping the other JSR-310 store defaults.
+        val storeConverters = JdbcCustomConversions.storeConverters().filterNot { converter ->
+            converter.javaClass.simpleName in setOf("LocalDateToTimestampConverter", "TimestampToLocalDateConverter")
+        }
+        val storeConversions = StoreConversions.of(JdbcSimpleTypes.HOLDER, storeConverters)
+        return JdbcCustomConversions(
+            storeConversions,
+            listOf(
+                BigDecimalToStringConverter(),
+                StringToBigDecimalConverter(),
+                LocalDateToStringConverter(),
+                StringToLocalDateConverter(),
+                UuidToStringConverter(),
+                StringToUuidConverter(),
+                RoastLevelToStringConverter(),
+                StringToRoastLevelConverter(),
+                ProcessToStringConverter(),
+                StringToProcessConverter(),
+                RoastProfileToStringConverter(),
+                StringToRoastProfileConverter(),
+                BrewTargetToStringConverter(),
+                StringToBrewTargetConverter(),
+                TagSetToStringConverter(),
+                StringToTagSetConverter(),
+            ),
         )
-    )
+    }
 }

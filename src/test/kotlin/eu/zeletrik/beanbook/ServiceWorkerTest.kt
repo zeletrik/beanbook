@@ -10,6 +10,7 @@ import org.springframework.http.HttpStatus
 import org.springframework.web.client.RestTemplate
 import org.junit.jupiter.api.Assertions.assertEquals
 
+/** Verifies that the PWA service worker, registration script, and offline fallback page are served correctly over HTTP. */
 @SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT)
 class ServiceWorkerTest {
 

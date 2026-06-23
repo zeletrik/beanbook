@@ -6,10 +6,11 @@ import com.github.mvysny.kaributesting.v10._size
 import com.github.mvysny.kaributesting.v10._value
 import com.vaadin.flow.component.button.Button
 import com.vaadin.flow.component.select.Select
+import com.vaadin.flow.data.provider.ListDataProvider
 import eu.zeletrik.beanbook.analytics.AnalyticsService
 import eu.zeletrik.beanbook.beans.BeanPurchase
 import eu.zeletrik.beanbook.beans.BeanPurchaseService
-import eu.zeletrik.beanbook.beans.ExportService
+import eu.zeletrik.beanbook.backup.ExportService
 import tools.jackson.module.kotlin.jacksonObjectMapper
 import eu.zeletrik.beanbook.beans.Process
 import eu.zeletrik.beanbook.beans.RoastLevel
@@ -24,6 +25,7 @@ import java.math.BigDecimal
 import java.time.LocalDate
 import java.util.UUID
 
+/** UI tests covering create, edit and delete of [BeanPurchase] entries through [MainView]. */
 class PurchaseCrudTest {
 
     private lateinit var repo: CrudTestRepository
@@ -33,8 +35,8 @@ class PurchaseCrudTest {
     fun setup() {
         MockVaadin.setup()
         repo = CrudTestRepository()
-        view = MainView(BeanPurchaseService(repo, repo), AnalyticsService(), ExportService(BeanPurchaseService(repo, repo), object : eu.zeletrik.beanbook.wishlist.WishlistService(org.springframework.jdbc.core.JdbcTemplate()) { override fun findAll() = emptyList<eu.zeletrik.beanbook.wishlist.WishlistItem>() }, jacksonObjectMapper()), eu.zeletrik.beanbook.TestImportService(), eu.zeletrik.beanbook.TestPreferencesService(), eu.zeletrik.beanbook.TestWishlistService())
-        view.navigateTo(2)  // make Add page visible
+        view = testMainView(repo)
+        view.navigateTo(AppTab.ADD)  // make Add page visible
     }
 
     @AfterEach
@@ -42,7 +44,7 @@ class PurchaseCrudTest {
 
     private fun purchase(name: String = "Bean", price: String = "15.00") = BeanPurchase(
         id = UUID.randomUUID(), name = name, roaster = "Roaster", origin = "Ethiopia",
-        pricePerUnit = BigDecimal(price), weightGrams = 250,
+        price = BigDecimal(price), weightGrams = 250,
         purchaseDate = LocalDate.of(2025, 1, 1), roastDate = LocalDate.of(2024, 12, 28),
         roastLevel = RoastLevel.MEDIUM, process = Process.WASHED, imageData = null,
         roastProfile = eu.zeletrik.beanbook.beans.RoastProfile.FILTER,
@@ -70,20 +72,41 @@ class PurchaseCrudTest {
         assertEquals(sizeBefore + 1, view.purchaseCount)
     }
 
-    // AC-11: roastLevel restricted to 3 values
+    // #1: an entered link is normalised (https:// prepended) and persisted
     @Test
-    fun `roastLevel select has exactly three options`() {
-        val items = RoastLevel.entries
-        assertEquals(3, items.size)
-        assertTrue(items.containsAll(listOf(RoastLevel.LIGHT, RoastLevel.MEDIUM, RoastLevel.DARK)))
+    fun `add purchase with link persists normalised url`() {
+        fillAddForm(name = "Linked Bean")
+        view.addFormContent.linkField._value = "roaster.com/beans"
+        view.addFormContent.saveButton.click()
+
+        val saved = repo.findAll().first { it.name == "Linked Bean" }
+        assertEquals("https://roaster.com/beans", saved.url)
     }
 
-    // AC-12: process restricted to 3 values
+    // #1: a blank link stays null rather than persisting an empty string
     @Test
-    fun `process select has exactly three options`() {
-        val items = Process.entries
-        assertEquals(3, items.size)
-        assertTrue(items.containsAll(listOf(Process.WASHED, Process.NATURAL, Process.HONEY)))
+    fun `add purchase without link persists null url`() {
+        fillAddForm(name = "Unlinked Bean")
+        view.addFormContent.saveButton.click()
+
+        val saved = repo.findAll().first { it.name == "Unlinked Bean" }
+        assertEquals(null, saved.url)
+    }
+
+    // AC-11: the roast-level selector offers exactly the three roast levels
+    @Test
+    fun `roastLevel select offers exactly the three roast levels`() {
+        @Suppress("UNCHECKED_CAST")
+        val items = (view.addFormContent.roastLevelField.dataProvider as ListDataProvider<RoastLevel>).items
+        assertEquals(setOf(RoastLevel.LIGHT, RoastLevel.MEDIUM, RoastLevel.DARK), items.toSet())
+    }
+
+    // AC-12: the process selector offers exactly the three processes
+    @Test
+    fun `process select offers exactly the three processes`() {
+        @Suppress("UNCHECKED_CAST")
+        val items = (view.addFormContent.processField.dataProvider as ListDataProvider<Process>).items
+        assertEquals(setOf(Process.WASHED, Process.NATURAL, Process.HONEY), items.toSet())
     }
 
     // AC-14: valid edit reflects changes in grid

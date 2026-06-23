@@ -1,6 +1,9 @@
 {
+  "id": "/",
+  "scope": "/",
   "name": "Bean Book",
   "short_name": "BeanBook",
+  "description": "Track your coffee bean purchases, roasts, and brewing notes.",
   "display": "standalone",
   "start_url": "/",
   "theme_color": "#6B4226",
@@ -9,12 +12,14 @@
     {
       "src": "/icons/icon-192.svg",
       "sizes": "192x192",
-      "type": "image/svg+xml"
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
     },
     {
       "src": "/icons/icon-512.svg",
       "sizes": "512x512",
-      "type": "image/svg+xml"
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
     }
   ],
   "shortcuts": [

@@ -4,6 +4,7 @@ import com.vaadin.flow.component.dialog.Dialog
 import eu.zeletrik.beanbook.beans.BeanPurchase
 import java.util.UUID
 
+/** Modal [Dialog] wrapping [PurchaseFormContent] for creating, editing, or duplicating a [BeanPurchase]. */
 class PurchaseForm(
     onSave: (bean: PurchaseFormBean, existingId: UUID?) -> Unit,
     getAllTags: () -> Set<String> = { emptySet() },
@@ -15,7 +16,7 @@ class PurchaseForm(
         getAllTags = getAllTags,
     )
 
-    // Expose content fields for tests
+    /** Exposes the underlying [content] fields for tests. */
     internal val nameField get() = content.nameField
     internal val roasterField get() = content.roasterField
     internal val originField get() = content.originField

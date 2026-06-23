@@ -1,36 +1,28 @@
 package eu.zeletrik.beanbook.wishlist
 
-import org.springframework.jdbc.core.JdbcTemplate
+import eu.zeletrik.beanbook.wishlist.internal.WishlistRepository
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Transactional
 import java.util.UUID
 
+/** Transactional access to wishlist entries, persisting [WishlistItem]s with app-assigned ids. */
 @Service
-class WishlistService(private val jdbcTemplate: JdbcTemplate) {
+class WishlistService(private val repository: WishlistRepository) {
 
-    fun findAll(): List<WishlistItem> = jdbcTemplate.query(
-        "SELECT id, name, roaster, origin, notes FROM wishlist_items ORDER BY rowid"
-    ) { rs, _ ->
-        WishlistItem(
-            id = UUID.fromString(rs.getString("id")),
-            name = rs.getString("name"),
-            roaster = rs.getString("roaster"),
-            origin = rs.getString("origin"),
-            notes = rs.getString("notes"),
-        )
-    }
+    @Transactional(readOnly = true)
+    fun findAll(): List<WishlistItem> = repository.findAllByRowid()
 
+    /** Inserts [item] if its id is new, otherwise updates the existing row in place. */
+    @Transactional
     fun upsert(item: WishlistItem) {
-        jdbcTemplate.update(
-            "INSERT OR REPLACE INTO wishlist_items (id, name, roaster, origin, notes) VALUES (?, ?, ?, ?, ?)",
-            item.id.toString(),
-            item.name,
-            item.roaster,
-            item.origin,
-            item.notes,
-        )
+        // App-assigned UUID: choose INSERT vs UPDATE by existence (a proper UPDATE preserves the
+        // rowid, so insertion order survives edits — unlike the old INSERT OR REPLACE).
+        item.markNew(!repository.existsById(item.id))
+        repository.save(item)
     }
 
+    @Transactional
     fun deleteById(id: UUID) {
-        jdbcTemplate.update("DELETE FROM wishlist_items WHERE id = ?", id.toString())
+        repository.deleteById(id)
     }
 }

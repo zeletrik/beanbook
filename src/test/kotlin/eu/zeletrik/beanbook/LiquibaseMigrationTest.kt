@@ -23,6 +23,9 @@ import java.nio.file.Path
 import java.time.LocalDate
 import java.util.UUID
 
+/**
+ * Verifies that the Liquibase migration creates the schema, persists data across context restarts, and applies each changeset exactly once.
+ */
 @SpringBootTest
 @TestMethodOrder(MethodOrderer.OrderAnnotation::class)
 class LiquibaseMigrationTest {
@@ -45,7 +48,7 @@ class LiquibaseMigrationTest {
             name = "Migration Test Bean",
             roaster = "Liquibase Roasters",
             origin = "Kenya",
-            pricePerUnit = BigDecimal("28.50"),
+            price = BigDecimal("28.50"),
             weightGrams = 200,
             purchaseDate = LocalDate.of(2025, 3, 1),
             roastDate = LocalDate.of(2025, 2, 25),
@@ -104,6 +107,6 @@ class LiquibaseMigrationTest {
             "SELECT COUNT(*) FROM DATABASECHANGELOG",
             Int::class.java,
         )
-        assertEquals(6, migrationCount, "V1–V6 migrations should each appear exactly once in DATABASECHANGELOG")
+        assertEquals(1, migrationCount, "The consolidated V1 baseline should appear exactly once in DATABASECHANGELOG")
     }
 }

@@ -1,6 +1,9 @@
 package eu.zeletrik.beanbook.beans
 
 import eu.zeletrik.beanbook.TestBeanPurchaseRepository
+import eu.zeletrik.beanbook.TestWishlistRepository
+import eu.zeletrik.beanbook.backup.ExportService
+import eu.zeletrik.beanbook.backup.ImportService
 import eu.zeletrik.beanbook.wishlist.WishlistItem
 import eu.zeletrik.beanbook.wishlist.WishlistService
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -13,6 +16,7 @@ import java.math.BigDecimal
 import java.time.LocalDate
 import java.util.UUID
 
+/** Verifies [ImportService] parsing, validation, and export round-trip behaviour across legacy and current backup formats. */
 class ImportServiceTest {
 
     private val objectMapper = jacksonObjectMapper()
@@ -20,9 +24,9 @@ class ImportServiceTest {
     private val purchaseStore = mutableListOf<BeanPurchase>()
     private val wishlistStore = mutableListOf<WishlistItem>()
 
-    private val beanRepo = object : TestBeanPurchaseRepository() { init { store.clear() } }
-    private val beanService = BeanPurchaseService(beanRepo, beanRepo)
-    private val wishlistService = object : WishlistService(JdbcTemplate()) {
+    private val beanRepo = object : TestBeanPurchaseRepository() {}
+    private val beanService = BeanPurchaseService(beanRepo)
+    private val wishlistService = object : WishlistService(TestWishlistRepository()) {
         override fun findAll() = wishlistStore.toList()
         override fun upsert(item: WishlistItem) { wishlistStore.removeIf { it.id == item.id }; wishlistStore.add(item) }
         override fun deleteById(id: UUID) { wishlistStore.removeIf { it.id == id } }
@@ -36,7 +40,7 @@ class ImportServiceTest {
         roastProfile: RoastProfile = RoastProfile.FILTER,
     ) = BeanPurchase(
         id = id, name = name, roaster = "R", origin = "E",
-        pricePerUnit = BigDecimal("15.00"), weightGrams = 250,
+        price = BigDecimal("15.00"), weightGrams = 250,
         purchaseDate = LocalDate.of(2025, 1, 1), roastDate = LocalDate.of(2024, 12, 28),
         roastLevel = RoastLevel.MEDIUM, process = Process.WASHED,
         roastProfile = roastProfile,
@@ -101,10 +105,11 @@ class ImportServiceTest {
 
     // AC-9: individual record missing required field skipped, others imported
     @Test
+    @Suppress("MaxLineLength")
     fun `record missing required id is skipped, others imported`() {
         val valid = purchase(name = "Valid")
         // Invalid: missing "id" field — use raw JSON
-        val json = """{"purchases":[{"name":"NoId","roaster":"R","origin":"E","pricePerUnit":"10.00","weightGrams":100,"purchaseDate":"2025-01-01","roastDate":"2024-12-28","roastLevel":"MEDIUM","process":"WASHED","roastProfile":"FILTER"},${objectMapper.writeValueAsString(valid)}]}"""
+        val json = """{"purchases":[{"name":"NoId","roaster":"R","origin":"E","price":"10.00","weightGrams":100,"purchaseDate":"2025-01-01","roastDate":"2024-12-28","roastLevel":"MEDIUM","process":"WASHED","roastProfile":"FILTER"},${objectMapper.writeValueAsString(valid)}]}"""
         val result = service.import(json.toByteArray())
         assertTrue(result.success)
         assertEquals(1, result.purchases, "Only valid record imported")
@@ -113,12 +118,45 @@ class ImportServiceTest {
 
     // Risk Hotspot 1: legacy record without roastProfile gets OMNI default
     @Test
+    @Suppress("MaxLineLength")
     fun `purchase without roastProfile defaults to OMNI and is not skipped`() {
-        val json = """[{"id":"${UUID.randomUUID()}","name":"Old Bean","roaster":"R","origin":"E","pricePerUnit":"15.00","weightGrams":250,"purchaseDate":"2025-01-01","roastDate":"2024-12-28","roastLevel":"MEDIUM","process":"WASHED"}]"""
+        val json = """[{"id":"${UUID.randomUUID()}","name":"Old Bean","roaster":"R","origin":"E","price":"15.00","weightGrams":250,"purchaseDate":"2025-01-01","roastDate":"2024-12-28","roastLevel":"MEDIUM","process":"WASHED"}]"""
         val result = service.import(json.toByteArray())
         assertTrue(result.success)
         assertEquals(1, result.purchases, "Legacy record without roastProfile must be imported with OMNI default")
         assertEquals(RoastProfile.OMNI, beanRepo.store.first().roastProfile)
+    }
+
+    // §D4.6: pre-rename backups used the "pricePerUnit" JSON key — @JsonAlias must keep them importable.
+    @Test
+    @Suppress("MaxLineLength")
+    fun `legacy export using pricePerUnit key still imports via JsonAlias`() {
+        val json = """[{"id":"${UUID.randomUUID()}","name":"Legacy Price","roaster":"R","origin":"E","pricePerUnit":"19.99","weightGrams":250,"purchaseDate":"2025-01-01","roastDate":"2024-12-28","roastLevel":"MEDIUM","process":"WASHED","roastProfile":"FILTER"}]"""
+        val result = service.import(json.toByteArray())
+        assertTrue(result.success)
+        assertEquals(1, result.purchases, "Record using the legacy pricePerUnit key must import")
+        assertEquals(BigDecimal("19.99"), beanRepo.store.first().price, "pricePerUnit must map to price")
+    }
+
+    // Verification #1: a comma-bearing imported tag must not silently split on the CSV round-trip.
+    @Test
+    @Suppress("MaxLineLength")
+    fun `imported tag containing a comma is normalised into separate tags`() {
+        val json = """[{"id":"${UUID.randomUUID()}","name":"Comma Tag","roaster":"R","origin":"E","price":"15.00","weightGrams":250,"purchaseDate":"2025-01-01","roastDate":"2024-12-28","roastLevel":"MEDIUM","process":"WASHED","roastProfile":"FILTER","tags":["fruity, floral","NATURAL"]}]"""
+        val result = service.import(json.toByteArray())
+        assertTrue(result.success)
+        assertEquals(1, result.purchases)
+        assertEquals(setOf("fruity", "floral", "natural"), beanRepo.store.first().tags)
+    }
+
+    // §S7.3: a present-but-non-array "purchases" must not be iterated as records.
+    @Test
+    fun `object with non-array purchases field imports nothing`() {
+        val json = """{"purchases":{"name":"NotAnArray"},"wishlist":[]}"""
+        val result = service.import(json.toByteArray())
+        assertTrue(result.success)
+        assertEquals(0, result.purchases, "A non-array purchases field must yield zero imported records")
+        assertTrue(beanRepo.store.isEmpty(), "Nothing must be written for a malformed purchases field")
     }
 
     // AC-22 / AC-25 / Round-trip: export then re-import restores data

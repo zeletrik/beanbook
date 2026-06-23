@@ -5,7 +5,7 @@ import com.github.mvysny.kaributesting.v10._value
 import eu.zeletrik.beanbook.analytics.AnalyticsService
 import eu.zeletrik.beanbook.beans.BeanPurchase
 import eu.zeletrik.beanbook.beans.BeanPurchaseService
-import eu.zeletrik.beanbook.beans.ExportService
+import eu.zeletrik.beanbook.backup.ExportService
 import tools.jackson.module.kotlin.jacksonObjectMapper
 import eu.zeletrik.beanbook.beans.Process
 import eu.zeletrik.beanbook.beans.RoastLevel
@@ -22,6 +22,7 @@ import java.math.BigDecimal
 import java.time.LocalDate
 import java.util.UUID
 
+/** Verifies the grind settings field on the add form and its rendering on the purchase detail view. */
 class GrindSettingsTest {
 
     private lateinit var repo: GrindTestRepository
@@ -32,8 +33,8 @@ class GrindSettingsTest {
     fun setup() {
         MockVaadin.setup()
         repo = GrindTestRepository()
-        view = MainView(BeanPurchaseService(repo, repo), AnalyticsService(), ExportService(BeanPurchaseService(repo, repo), object : eu.zeletrik.beanbook.wishlist.WishlistService(org.springframework.jdbc.core.JdbcTemplate()) { override fun findAll() = emptyList<eu.zeletrik.beanbook.wishlist.WishlistItem>() }, jacksonObjectMapper()), eu.zeletrik.beanbook.TestImportService(), eu.zeletrik.beanbook.TestPreferencesService(), eu.zeletrik.beanbook.TestWishlistService())
-        view.navigateTo(2)
+        view = testMainView(repo)
+        view.navigateTo(AppTab.ADD)
         addForm = view.addFormContent
     }
 
@@ -92,7 +93,7 @@ class GrindSettingsTest {
     fun `grind settings shown on detail page when non-empty`() {
         val purchase = BeanPurchase(
             id = UUID.randomUUID(), name = "Bean", roaster = "R", origin = "E",
-            pricePerUnit = BigDecimal("10.00"), weightGrams = 250,
+            price = BigDecimal("10.00"), weightGrams = 250,
             purchaseDate = LocalDate.of(2025, 1, 1), roastDate = LocalDate.of(2024, 12, 28),
             roastLevel = RoastLevel.MEDIUM, process = Process.WASHED,
             grindSettings = "20 on Niche",
@@ -109,7 +110,7 @@ class GrindSettingsTest {
     fun `grind settings not shown on detail page when absent`() {
         val purchase = BeanPurchase(
             id = UUID.randomUUID(), name = "Bean", roaster = "R", origin = "E",
-            pricePerUnit = BigDecimal("10.00"), weightGrams = 250,
+            price = BigDecimal("10.00"), weightGrams = 250,
             purchaseDate = LocalDate.of(2025, 1, 1), roastDate = LocalDate.of(2024, 12, 28),
             roastLevel = RoastLevel.MEDIUM, process = Process.WASHED,
             grindSettings = null,

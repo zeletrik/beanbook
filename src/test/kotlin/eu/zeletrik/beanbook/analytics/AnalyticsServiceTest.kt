@@ -3,9 +3,11 @@ package eu.zeletrik.beanbook.analytics
 import eu.zeletrik.beanbook.beans.BeanPurchase
 import eu.zeletrik.beanbook.beans.Process
 import eu.zeletrik.beanbook.beans.RoastLevel
+import eu.zeletrik.beanbook.beans.BrewTarget
 import eu.zeletrik.beanbook.beans.RoastProfile
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.math.BigDecimal
 import java.time.LocalDate
@@ -22,13 +24,13 @@ class AnalyticsServiceTest {
         price: String = "10.00",
         purchaseDate: LocalDate = LocalDate.of(2025, 1, 1),
         roastProfile: RoastProfile = RoastProfile.FILTER,
-        usedAs: RoastProfile? = null,
+        usedAs: BrewTarget? = null,
     ) = BeanPurchase(
         id = UUID.randomUUID(),
         name = name,
         roaster = roaster,
         origin = origin,
-        pricePerUnit = BigDecimal(price),
+        price = BigDecimal(price),
         weightGrams = 250,
         purchaseDate = purchaseDate,
         roastDate = purchaseDate.minusDays(5),
@@ -49,7 +51,7 @@ class AnalyticsServiceTest {
 
     // AC-18: total cost
     @Test
-    fun `totalCost returns sum of all pricePerUnit`() {
+    fun `totalCost returns sum of all price`() {
         val result = service.totalCost(samplePurchases)
         assertEquals(BigDecimal("117.50"), result)
     }
@@ -58,6 +60,36 @@ class AnalyticsServiceTest {
     @Test
     fun `totalCost returns zero for empty list`() {
         assertEquals(BigDecimal.ZERO, service.totalCost(emptyList()))
+    }
+
+    // #9: spend-over-time aggregation — by purchase month, zero-filled, within the window.
+    @Test
+    fun `spendByMonth sums by purchase month and zero-fills gaps within the window`() {
+        val beans = listOf(
+            purchase(price = "10.00", purchaseDate = LocalDate.of(2025, 1, 15)),
+            purchase(price = "5.00", purchaseDate = LocalDate.of(2025, 1, 20)),
+            purchase(price = "20.00", purchaseDate = LocalDate.of(2025, 3, 3)),
+        )
+        val result = service.spendByMonth(beans, months = 6)
+
+        assertEquals(6, result.size, "window must be exactly 6 months")
+        assertEquals(java.time.YearMonth.of(2025, 3), result.last().month, "window ends at the latest purchase month")
+        assertEquals(BigDecimal("15.00"), result.first { it.month == java.time.YearMonth.of(2025, 1) }.total)
+        assertEquals(BigDecimal.ZERO, result.first { it.month == java.time.YearMonth.of(2025, 2) }.total, "gap month is zero-filled")
+        assertEquals(BigDecimal("20.00"), result.last().total)
+    }
+
+    @Test
+    fun `spendByMonth returns empty for no purchases`() {
+        assertTrue(service.spendByMonth(emptyList()).isEmpty())
+    }
+
+    // §D4.6: `price` is the whole-bag price — totals must NOT scale with weight.
+    @Test
+    fun `totalCost is the sum of bag prices and independent of weight`() {
+        val light = purchase(price = "12.00").copy(weightGrams = 200)
+        val heavy = purchase(price = "12.00").copy(weightGrams = 1000)
+        assertEquals(BigDecimal("24.00"), service.totalCost(listOf(light, heavy)))
     }
 
     // AC-20: total spend per bean
@@ -78,7 +110,7 @@ class AnalyticsServiceTest {
 
     // AC-22: average cost
     @Test
-    fun `averageCost returns mean pricePerUnit`() {
+    fun `averageCost returns mean price`() {
         val result = service.averageCost(samplePurchases)
         assertEquals(BigDecimal("23.50"), result)
     }
@@ -123,10 +155,10 @@ class AnalyticsServiceTest {
 
     // AC-26: most expensive bean — happy path
     @Test
-    fun `mostExpensiveBean returns entry with highest pricePerUnit`() {
+    fun `mostExpensiveBean returns entry with highest price`() {
         val result = service.mostExpensiveBean(samplePurchases)
         assertEquals("Gesha", result?.name)
-        assertEquals(BigDecimal("42.00"), result?.pricePerUnit)
+        assertEquals(BigDecimal("42.00"), result?.price)
     }
 
     // AC-26: most expensive bean — tie-breaking: earliest purchaseDate
@@ -146,7 +178,7 @@ class AnalyticsServiceTest {
 
     // AC-27: most expensive roaster — happy path
     @Test
-    fun `mostExpensiveRoaster returns roaster with highest average pricePerUnit`() {
+    fun `mostExpensiveRoaster returns roaster with highest average price`() {
         // Onyx: (22.00 + 42.00) / 2 = 32.00; Square Mile: (18.50 + 19.00) / 2 = 18.75
         assertEquals("Onyx", service.mostExpensiveRoaster(samplePurchases))
     }
@@ -275,12 +307,12 @@ class AnalyticsServiceTest {
 
     @Test
     fun `OMNI with usedAs ESPRESSO classifies as ESPRESSO`() {
-        assertEquals(BrewMethod.ESPRESSO, purchase(roastProfile = RoastProfile.OMNI, usedAs = RoastProfile.ESPRESSO).effectiveBrewMethod())
+        assertEquals(BrewMethod.ESPRESSO, purchase(roastProfile = RoastProfile.OMNI, usedAs = BrewTarget.ESPRESSO).effectiveBrewMethod())
     }
 
     @Test
     fun `OMNI with usedAs FILTER classifies as FILTER`() {
-        assertEquals(BrewMethod.FILTER, purchase(roastProfile = RoastProfile.OMNI, usedAs = RoastProfile.FILTER).effectiveBrewMethod())
+        assertEquals(BrewMethod.FILTER, purchase(roastProfile = RoastProfile.OMNI, usedAs = BrewTarget.FILTER).effectiveBrewMethod())
     }
 
     @Test
@@ -295,7 +327,7 @@ class AnalyticsServiceTest {
         val beans = listOf(
             purchase(price = "10.00", roastProfile = RoastProfile.ESPRESSO),
             purchase(price = "20.00", roastProfile = RoastProfile.FILTER),
-            purchase(price = "15.00", roastProfile = RoastProfile.OMNI, usedAs = RoastProfile.ESPRESSO),
+            purchase(price = "15.00", roastProfile = RoastProfile.OMNI, usedAs = BrewTarget.ESPRESSO),
             purchase(price = "5.00",  roastProfile = RoastProfile.OMNI, usedAs = null),
         )
         val result = service.spendByBrewMethod(beans)

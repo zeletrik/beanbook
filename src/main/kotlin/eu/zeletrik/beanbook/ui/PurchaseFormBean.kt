@@ -1,5 +1,6 @@
 package eu.zeletrik.beanbook.ui
 
+import eu.zeletrik.beanbook.beans.BrewTarget
 import eu.zeletrik.beanbook.beans.Process
 import eu.zeletrik.beanbook.beans.RoastLevel
 import eu.zeletrik.beanbook.beans.RoastProfile
@@ -10,7 +11,7 @@ class PurchaseFormBean {
     var name: String = ""
     var roaster: String = ""
     var origin: String = ""
-    var pricePerUnit: BigDecimal? = null
+    var price: BigDecimal? = null
     var weightGrams: Int? = null
     var purchaseDate: LocalDate? = null
     var roastDate: LocalDate? = null
@@ -23,6 +24,7 @@ class PurchaseFormBean {
     var openedDate: LocalDate? = null
     var finishedDate: LocalDate? = null
     var roastProfile: RoastProfile? = RoastProfile.OMNI
-    var usedAs: RoastProfile? = null
-    var tags: List<String> = emptyList()
+    var usedAs: BrewTarget? = null
+    var tags: Set<String> = emptySet()
+    var url: String = ""
 }

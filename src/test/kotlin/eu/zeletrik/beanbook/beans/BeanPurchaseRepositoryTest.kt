@@ -14,6 +14,7 @@ import java.math.BigDecimal
 import java.time.LocalDate
 import java.util.UUID
 
+/** Persistence round-trip tests verifying [BeanPurchase] fields survive save and read through [BeanPurchaseService] and the SQLite repository. */
 @SpringBootTest(properties = ["spring.datasource.url=jdbc:sqlite::memory:?journal_mode=WAL"])
 class BeanPurchaseRepositoryTest {
 
@@ -34,14 +35,14 @@ class BeanPurchaseRepositoryTest {
     private fun samplePurchase(
         id: UUID = UUID.randomUUID(),
         name: String = "Test Bean",
-        pricePerUnit: BigDecimal = BigDecimal("18.50"),
+        price: BigDecimal = BigDecimal("18.50"),
         purchaseDate: LocalDate = LocalDate.of(2025, 1, 15),
     ) = BeanPurchase(
         id = id,
         name = name,
         roaster = "Test Roaster",
         origin = "Ethiopia",
-        pricePerUnit = pricePerUnit,
+        price = price,
         weightGrams = 250,
         purchaseDate = purchaseDate,
         roastDate = LocalDate.of(2025, 1, 10),
@@ -65,12 +66,12 @@ class BeanPurchaseRepositoryTest {
     fun `save with existing id replaces all fields`() {
         val original = samplePurchase(name = "Original")
         service.save(original)
-        val updated = original.copy(name = "Updated", pricePerUnit = BigDecimal("25.00"))
+        val updated = original.copy(name = "Updated", price = BigDecimal("25.00"))
         service.save(updated)
         val all = service.findAll()
         assertEquals(1, all.size)
         assertEquals("Updated", all.first().name)
-        assertEquals(BigDecimal("25.00"), all.first().pricePerUnit)
+        assertEquals(BigDecimal("25.00"), all.first().price)
     }
 
     // AC-4: delete removes the record
@@ -107,14 +108,14 @@ class BeanPurchaseRepositoryTest {
     // AC-7: BigDecimal precision preserved (TEXT storage)
     @Test
     fun `BigDecimal price_per_unit round-trips without precision loss`() {
-        service.save(samplePurchase(pricePerUnit = BigDecimal("18.50")))
-        assertEquals(BigDecimal("18.50"), service.findAll().first().pricePerUnit)
+        service.save(samplePurchase(price = BigDecimal("18.50")))
+        assertEquals(BigDecimal("18.50"), service.findAll().first().price)
     }
 
     @Test
     fun `BigDecimal with many decimal places round-trips exactly`() {
-        service.save(samplePurchase(pricePerUnit = BigDecimal("99.999")))
-        assertEquals(BigDecimal("99.999"), service.findAll().first().pricePerUnit)
+        service.save(samplePurchase(price = BigDecimal("99.999")))
+        assertEquals(BigDecimal("99.999"), service.findAll().first().price)
     }
 
     // AC-8: LocalDate fields round-trip as the same date
@@ -188,10 +189,10 @@ class BeanPurchaseRepositoryTest {
     // AC-17 + AC-19 + Risk Hotspot 1/3: tags round-trip and null→emptyList default
     @Test
     fun `tags round-trip correctly via write and read`() {
-        val p = samplePurchase().copy(tags = listOf("fruity", "natural"))
+        val p = samplePurchase().copy(tags = setOf("fruity", "natural"))
         service.save(p)
         val loaded = service.findAll().first()
-        assertEquals(listOf("fruity", "natural"), loaded.tags, "Tags must survive write→read")
+        assertEquals(setOf("fruity", "natural"), loaded.tags, "Tags must survive write→read")
     }
 
     @Test
@@ -200,5 +201,14 @@ class BeanPurchaseRepositoryTest {
         service.save(p)
         val loaded = service.findAll().first()
         assertTrue(loaded.tags.isEmpty(), "NULL tags column must load as emptyList()")
+    }
+
+    @Test
+    fun `url round-trips including null`() {
+        service.save(samplePurchase(name = "Linked").copy(url = "https://roaster.com/bean"))
+        assertEquals("https://roaster.com/bean", service.findAll().first { it.name == "Linked" }.url)
+
+        service.save(samplePurchase(name = "Unlinked")) // url = null by default
+        assertNull(service.findAll().first { it.name == "Unlinked" }.url)
     }
 }

@@ -7,7 +7,6 @@ import com.vaadin.flow.component.dialog.Dialog
 import com.vaadin.flow.component.html.Div
 import com.vaadin.flow.component.html.H2
 import com.vaadin.flow.component.html.H3
-import com.vaadin.flow.component.html.Image
 import com.vaadin.flow.component.html.Paragraph
 import com.vaadin.flow.component.html.Span
 import com.vaadin.flow.component.icon.Icon
@@ -21,33 +20,28 @@ import com.vaadin.flow.component.textfield.TextField
 import com.vaadin.flow.data.value.ValueChangeMode
 import com.vaadin.flow.router.Route
 import eu.zeletrik.beanbook.analytics.AnalyticsService
+import eu.zeletrik.beanbook.backup.ExportService
+import eu.zeletrik.beanbook.backup.ImportService
 import eu.zeletrik.beanbook.beans.BagState
 import eu.zeletrik.beanbook.beans.BeanPurchase
 import eu.zeletrik.beanbook.beans.BeanPurchaseService
-import java.math.BigDecimal
+import eu.zeletrik.beanbook.beans.RoastProfile
+import eu.zeletrik.beanbook.preferences.PreferencesService
+import eu.zeletrik.beanbook.wishlist.WishlistService
+import org.slf4j.LoggerFactory
 import java.util.UUID
 
-private const val ONE_STAR = 1
-private const val TWO_STARS = 2
-private const val THREE_STARS = 3
-private const val FOUR_STARS = 4
-private const val FIVE_STARS = 5
+private val log = LoggerFactory.getLogger(MainView::class.java)
 
-// Reachable from both MainView and PurchaseDetailView
-internal fun Int?.toStars(): String = when (this) {
-    ONE_STAR -> "★☆☆☆☆"; TWO_STARS -> "★★☆☆☆"; THREE_STARS -> "★★★☆☆"
-    FOUR_STARS -> "★★★★☆"; FIVE_STARS -> "★★★★★"
-    else -> ""
-}
-
+/** Root view of the app: a tabbed bottom-nav shell hosting the purchases, analytics, add, wishlist and settings pages. */
 @Route("")
 class MainView(
     private val beanPurchaseService: BeanPurchaseService,
     private val analyticsService: AnalyticsService,
-    private val exportService: eu.zeletrik.beanbook.beans.ExportService,
-    private val importService: eu.zeletrik.beanbook.beans.ImportService,
-    private val preferencesService: eu.zeletrik.beanbook.PreferencesService,
-    private val wishlistService: eu.zeletrik.beanbook.wishlist.WishlistService,
+    private val exportService: ExportService,
+    private val importService: ImportService,
+    private val preferencesService: PreferencesService,
+    private val wishlistService: WishlistService,
 ) : VerticalLayout() {
 
     internal val cardsLayout = Div().apply {
@@ -75,14 +69,23 @@ class MainView(
 
     internal val purchaseCount: Int get() = beanPurchaseService.findAll().size
 
-    // Both fields stored so showDetail/hideDetail can hide them when the detail view is open.
+    /** Stored so [showDetail]/[hideDetail] can hide it when the detail view is open. */
     private lateinit var purchasesScrollArea: Div
+
+    /** Stored so [showDetail]/[hideDetail] can hide it when the detail view is open. */
     private lateinit var purchasesSearchBar: HorizontalLayout
 
-    // Low-stock warning (AC-7–AC-10 / RULE-7, RULE-8)
-    internal val lowStockBanner = Paragraph("⚠️ No sealed bags in reserve — time to reorder!").also {
+    /** Low-stock warning (AC-7–AC-10 / RULE-7, RULE-8). */
+    internal val lowStockBanner = HorizontalLayout(
+        Icon(VaadinIcon.WARNING).apply { setSize("var(--lumo-icon-size-s)"); element.setAttribute("aria-hidden", "true") },
+        Span("No sealed bags in reserve — time to reorder!"),
+    ).also {
         it.setId("low-stock-banner")
         it.isVisible = false
+        it.isPadding = false
+        it.isSpacing = false
+        it.style["align-items"] = "center"
+        it.style["gap"] = "0.5rem"
         it.style["padding"] = "0.5rem 1rem"
         it.style["background"] = "var(--lumo-warning-color-10pct, #fff3cd)"
         it.style["color"] = "var(--lumo-warning-text-color, #856404)"
@@ -90,7 +93,7 @@ class MainView(
         it.style["margin"] = "0 0.75rem"
     }
 
-    // Filter + sort state
+    /** Current filter + sort state driving the purchases list. */
     internal var filterState = FilterState()
     internal val filterSortDialog = FilterSortDialog(
         onApply = { newState ->
@@ -98,7 +101,7 @@ class MainView(
             updateFilterButton()
             refreshView()
         },
-        getAvailableTags = { beanPurchaseService.findAll().flatMap { it.tags }.toSortedSet() },
+        getAvailableTags = { beanPurchaseService.allTags() },
     )
     internal val searchField = TextField().apply {
         placeholder = "Search name, roaster, origin…"
@@ -120,23 +123,26 @@ class MainView(
     }
 
     private val analyticsPanel = AnalyticsPanel(analyticsService, preferencesService::getCurrency)
-    // Expose totalCostSpan for test assertions (delegates to panel)
+
+    /** Exposed for test assertions; delegates to [analyticsPanel]. */
     internal val totalCostSpan: Span get() = analyticsPanel.totalCostSpan
 
     internal val addFormContent = PurchaseFormContent(
-        onSave = { bean: PurchaseFormBean, id: UUID? -> handleFormSave(bean, id); navigateTo(0) },
-        getAllTags = { beanPurchaseService.findAll().flatMap { it.tags }.toSet() },
+        onSave = { bean: PurchaseFormBean, id: UUID? -> handleFormSave(bean, id); navigateTo(AppTab.PURCHASES) },
+        getAllTags = { beanPurchaseService.allTags() },
     )
 
-    // purchaseForm and detailView reference each other via lambdas — break the cycle with lateinit
+    /** Edit/create form; references [detailView] via lambdas, so the cycle is broken by initialising it in [init]. */
     internal lateinit var purchaseForm: PurchaseForm
+
+    /** Detail view; references [purchaseForm] via lambdas, so the cycle is broken by initialising it in [init]. */
     internal lateinit var detailView: PurchaseDetailView
 
-    private val purchasesTab = Tab(Icon(VaadinIcon.LIST))
-    private val addTab = Tab(Icon(VaadinIcon.PLUS_CIRCLE_O))
-    private val analyticsTab = Tab(Icon(VaadinIcon.CHART))
-    private val settingsTab = Tab(Icon(VaadinIcon.COG))
-    private val wishlistTab = Tab(Icon(VaadinIcon.HEART))
+    private val purchasesTab = navTab(VaadinIcon.LIST, "Beans")
+    private val addTab = navTab(VaadinIcon.PLUS_CIRCLE_O, "Add")
+    private val analyticsTab = navTab(VaadinIcon.CHART, "Stats")
+    private val settingsTab = navTab(VaadinIcon.COG, "Settings")
+    private val wishlistTab = navTab(VaadinIcon.HEART, "Wishlist")
     internal lateinit var tabs: Tabs
     private lateinit var pages: List<VerticalLayout>
     internal lateinit var settingsPage: VerticalLayout
@@ -152,21 +158,32 @@ class MainView(
                     refreshView()
                     if (detailView.isVisible) detailView.show(updated)
                 } catch (e: Exception) {
+                    log.error("Failed to save bean {}", updated.id, e)
                     NotificationHelper.error("Failed to save — please try again")
                 }
             },
-            getAllTags = { beanPurchaseService.findAll().flatMap { it.tags }.toSet() },
+            getAllTags = { beanPurchaseService.allTags() },
         )
         detailView = PurchaseDetailView(
             onBack = { hideDetail() },
             onEdit = { p: BeanPurchase -> purchaseForm.openForEdit(p) },
             onDelete = { purchase: BeanPurchase -> showDeleteConfirmation(purchase) { hideDetail() } },
-            onSave = { updated: BeanPurchase -> beanPurchaseService.save(updated); refreshView() },
+            // Guarded inline (not a method) so a persistence failure from a detail-view inline edit
+            // can't escape into the UI thread — mirrors handleFormSave without the success toast.
+            onSave = { updated: BeanPurchase ->
+                try {
+                    beanPurchaseService.save(updated)
+                    refreshView()
+                } catch (e: Exception) {
+                    log.error("Failed to save bean {}", updated.id, e)
+                    NotificationHelper.error("Failed to save — please try again")
+                }
+            },
             getCurrency = preferencesService::getCurrency,
             // Duplicate: navigate to Add tab first (tab listener calls openForCreate to reset),
             // then immediately pre-fill with profile fields from source (RULE-11).
             onDuplicate = { purchase: BeanPurchase ->
-                navigateTo(2)                          // Add is now index 2; triggers openForCreate via tab listener
+                navigateTo(AppTab.ADD)                   // triggers openForCreate via tab listener
                 addFormContent.openWithProfile(purchase) // then overlay profile fields
             },
         )
@@ -225,13 +242,43 @@ class MainView(
             const apply = (dark) => { document.documentElement.setAttribute('theme', dark ? 'dark' : ''); };
             const mq = window.matchMedia('(prefers-color-scheme: dark)');
             apply(mq.matches);
-            mq.addEventListener('change', (e) => apply(e.matches));
+            // Bind the change listener once per page — MainView is recreated on navigation, and
+            // re-running this without the guard would leak a new listener each time.
+            if (!window.__beanbookThemeBound) {
+                window.__beanbookThemeBound = true;
+                mq.addEventListener('change', (e) => apply(e.matches));
+            }
         """.trimIndent())
     }
 
-    internal fun navigateTo(tabIndex: Int) {
-        tabs.selectedTab = tabs.children.toList()[tabIndex] as Tab
+    internal fun navigateTo(tab: AppTab) {
+        tabs.selectedTab = tabFor(tab)
     }
+
+    private fun tabFor(tab: AppTab): Tab = when (tab) {
+        AppTab.PURCHASES -> purchasesTab
+        AppTab.ANALYTICS -> analyticsTab
+        AppTab.ADD -> addTab
+        AppTab.WISHLIST -> wishlistTab
+        AppTab.SETTINGS -> settingsTab
+    }
+
+    /**
+     * Builds an icon + caption bottom-nav [Tab]. The caption aids discoverability; the aria-label gives
+     * screen readers a name for what would otherwise be an icon-only control.
+     */
+    private fun navTab(icon: VaadinIcon, label: String): Tab =
+        Tab(VerticalLayout(
+            Icon(icon),
+            Span(label).apply {
+                style["font-size"] = "var(--lumo-font-size-xxs)"
+                style["line-height"] = "1"
+            },
+        ).apply {
+            isPadding = false; isSpacing = false
+            style["align-items"] = "center"
+            style["gap"] = "2px"
+        }).apply { element.setAttribute("aria-label", label) }
 
     private fun updateFilterButton() {
         val count = filterState.activeFilterCount
@@ -250,10 +297,9 @@ class MainView(
     private fun hideDetail() {
         detailView.isVisible = false
         purchasesSearchBar.isVisible = true
-        purchasesScrollArea.isVisible = true
-        val purchases = beanPurchaseService.findAll()
-        cardsLayout.isVisible = purchases.isNotEmpty()
-        emptyStateMessage.isVisible = purchases.isEmpty()
+        // Delegate to refreshView so cards + empty-state are rebuilt against the active filter,
+        // rather than re-deriving visibility from the unfiltered list without rebuilding cards.
+        refreshView()
     }
 
     private fun buildPurchasesPage(): VerticalLayout {
@@ -291,10 +337,15 @@ class MainView(
         }
 
     private fun buildSettingsPage(): VerticalLayout {
-        val settingsView = SettingsView(exportService, importService, preferencesService, onImportComplete = {
-            refreshView()
-            wishlistView.refreshList()
-        })
+        val settingsView = SettingsView(
+            exportService, importService, preferencesService,
+            onImportComplete = {
+                refreshView()
+                wishlistView.refreshList()
+            },
+            // refreshView() re-renders the list cards and the analytics panel with the new symbol.
+            onCurrencyChanged = { refreshView() },
+        )
         val scrollable = VerticalLayout(H2("Settings"), settingsView).apply {
             isPadding = true; isSpacing = true; width = "100%"
         }
@@ -313,85 +364,6 @@ class MainView(
         }
     }
 
-    private fun buildCard(purchase: BeanPurchase): HorizontalLayout {
-        val thumbnail = buildCardThumbnail(purchase)
-        val details = buildCardDetails(purchase)
-        return HorizontalLayout(thumbnail, details).apply {
-            addClassName("bean-row")
-            isSpacing = false; isPadding = true
-            style["align-items"] = "center"; style["gap"] = "0.75rem"
-            style["border-radius"] = "var(--lumo-border-radius-l)"
-            style["background"] = "var(--lumo-base-color)"
-            style["box-shadow"] = "0 1px 4px rgba(0,0,0,0.08)"
-            style["border"] = "1px solid var(--lumo-contrast-10pct)"
-            style["cursor"] = "pointer"; style["width"] = "100%"
-            addClickListener { showDetail(purchase) }
-        }
-    }
-
-    private fun buildCardThumbnail(purchase: BeanPurchase): Div =
-        if (purchase.imageData != null) {
-            val imgWrapper = Div().apply {
-                style["width"] = "72px"; style["min-width"] = "72px"; style["height"] = "72px"
-                style["border-radius"] = "var(--lumo-border-radius-m)"; style["overflow"] = "hidden"
-                style["flex-shrink"] = "0"
-            }
-            imgWrapper.add(Image(purchase.imageData, "photo.jpg").apply {
-                style["width"] = "72px"; style["height"] = "72px"; style["object-fit"] = "cover"
-                style["display"] = "block"
-            })
-            imgWrapper
-        } else {
-            Div(Span("☕")).apply {
-                style["width"] = "72px"; style["min-width"] = "72px"; style["height"] = "72px"
-                style["border-radius"] = "var(--lumo-border-radius-m)"
-                style["background"] = "var(--lumo-contrast-5pct)"
-                style["display"] = "flex"; style["align-items"] = "center"
-                style["justify-content"] = "center"; style["font-size"] = "2rem"
-                style["flex-shrink"] = "0"
-            }
-        }
-
-    private fun buildCardDetails(purchase: BeanPurchase): VerticalLayout {
-        val (stateLabel, stateColor) = when (purchase.bagState) {
-            BagState.SEALED   -> "Sealed"   to "var(--lumo-contrast-60pct)"
-            BagState.OPEN     -> "Open"     to "var(--lumo-success-color)"
-            BagState.FINISHED -> "Finished" to "var(--lumo-primary-color)"
-        }
-        val stateBadge = Span(stateLabel).apply {
-            style["background"] = "${stateColor}22"; style["color"] = stateColor
-            style["border-radius"] = "var(--lumo-border-radius-m)"; style["padding"] = "0.1rem 0.5rem"
-            style["font-size"] = "var(--lumo-font-size-xs)"; style["font-weight"] = "600"
-        }
-        val bottomRow = HorizontalLayout().apply {
-            isSpacing = true; isPadding = false
-            style["align-items"] = "center"; style["flex-wrap"] = "wrap"; style["gap"] = "0.3rem"
-        }
-        val ratingText = purchase.rating.toStars()
-        if (ratingText.isNotEmpty()) {
-            bottomRow.add(Span(ratingText).apply {
-                style["font-size"] = "0.85rem"; style["letter-spacing"] = "0.04rem"
-            })
-        }
-        bottomRow.add(stateBadge)
-        return VerticalLayout().apply {
-            isPadding = false; isSpacing = false
-            style["gap"] = "0.15rem"; style["flex"] = "1"; style["overflow"] = "hidden"
-            style["min-width"] = "0"
-            add(Span(purchase.name).apply {
-                style["font-weight"] = "600"; style["font-size"] = "var(--lumo-font-size-m)"
-                style["overflow"] = "hidden"; style["text-overflow"] = "ellipsis"; style["white-space"] = "nowrap"
-            })
-            add(Span("${purchase.roaster}  ·  ${purchase.origin}").apply {
-                style["color"] = "var(--lumo-secondary-text-color)"; style["font-size"] = "var(--lumo-font-size-s)"
-                style["overflow"] = "hidden"; style["text-overflow"] = "ellipsis"; style["white-space"] = "nowrap"
-            })
-            add(Span("${purchase.pricePerUnit.formatPrice(preferencesService.getCurrency())}  ·  ${purchase.weightGrams} g").apply {
-                style["font-size"] = "var(--lumo-font-size-s)"; style["color"] = "var(--lumo-secondary-text-color)"
-            })
-            add(bottomRow)
-        }
-    }
 
     internal fun showDeleteConfirmation(purchase: BeanPurchase, onConfirmed: () -> Unit = {}): Dialog {
         val dialog = Dialog()
@@ -400,11 +372,15 @@ class MainView(
         val confirmBtn = Button("Confirm") {
             try {
                 beanPurchaseService.delete(purchase.id)
-                NotificationHelper.success("Bean deleted")
+                NotificationHelper.successWithUndo("Bean deleted") {
+                    beanPurchaseService.save(purchase)
+                    refreshView()
+                }
                 refreshView()
                 onConfirmed()
                 dialog.close()
             } catch (e: Exception) {
+                log.error("Failed to delete bean {}", purchase.id, e)
                 NotificationHelper.error("Failed to delete — please try again")
             }
         }.apply { setId("confirm-delete-btn"); addThemeVariants(ButtonVariant.LUMO_ERROR) }
@@ -418,7 +394,7 @@ class MainView(
         BeanPurchase(
             id = existingId ?: UUID.randomUUID(),
             name = bean.name, roaster = bean.roaster, origin = bean.origin,
-            pricePerUnit = bean.pricePerUnit!!, weightGrams = bean.weightGrams!!,
+            price = bean.price!!, weightGrams = bean.weightGrams!!,
             purchaseDate = bean.purchaseDate!!, roastDate = bean.roastDate!!,
             roastLevel = bean.roastLevel!!, process = bean.process!!,
             notes = bean.notes.ifBlank { null },
@@ -427,9 +403,10 @@ class MainView(
             rating = bean.rating,
             openedDate = bean.openedDate,
             finishedDate = bean.finishedDate,
-            roastProfile = bean.roastProfile ?: eu.zeletrik.beanbook.beans.RoastProfile.OMNI,
-            usedAs = if ((bean.roastProfile ?: eu.zeletrik.beanbook.beans.RoastProfile.OMNI) == eu.zeletrik.beanbook.beans.RoastProfile.OMNI) bean.usedAs else null,
-            tags = bean.tags.map { it.trim().lowercase() }.filter { it.isNotBlank() }.distinct(),
+            roastProfile = bean.roastProfile ?: RoastProfile.OMNI,
+            usedAs = if ((bean.roastProfile ?: RoastProfile.OMNI) == RoastProfile.OMNI) bean.usedAs else null,
+            tags = bean.tags.map { it.trim().lowercase() }.filter { it.isNotBlank() }.toSet(),
+            url = bean.url.toHref(),
         )
 
     private fun handleFormSave(bean: PurchaseFormBean, existingId: UUID?) {
@@ -438,6 +415,7 @@ class MainView(
             NotificationHelper.success("Bean saved")
             refreshView()
         } catch (e: Exception) {
+            log.error("Failed to save bean", e)
             NotificationHelper.error("Failed to save — please try again")
         }
     }
@@ -445,42 +423,44 @@ class MainView(
     internal fun refreshView() {
         val all = beanPurchaseService.findAll()
         val purchases = all.applyFilter(filterState)
+        analyticsPanel.update(purchases)
         // Low-stock banner: shown only when list is non-empty AND zero sealed bags remain (RULE-7, RULE-8)
         lowStockBanner.isVisible = !detailView.isVisible && all.isNotEmpty() && all.none { it.bagState == BagState.SEALED }
+
+        // The detail view covers the list; its page is rebuilt when it closes (hideDetail → refreshView),
+        // so there's no point rendering cards into a hidden layout here.
+        if (detailView.isVisible) return
+
         cardsLayout.removeAll()
-        if (!detailView.isVisible) {
-            when {
-                all.isEmpty() -> {
-                    showFirstUseEmptyState()
-                    emptyStateMessage.isVisible = true
-                    purchasesScrollArea.isVisible = false
-                    cardsLayout.isVisible = false
-                }
-                purchases.isEmpty() -> {
-                    showNoResultsEmptyState()
-                    emptyStateMessage.isVisible = true
-                    purchasesScrollArea.isVisible = false
-                    cardsLayout.isVisible = false
-                }
-                else -> {
-                    emptyStateMessage.isVisible = false
-                    purchasesScrollArea.isVisible = true
-                    cardsLayout.isVisible = true
-                    purchases.forEach { cardsLayout.add(buildCard(it)) }
-                }
+        when {
+            all.isEmpty() -> {
+                showFirstUseEmptyState()
+                emptyStateMessage.isVisible = true
+                purchasesScrollArea.isVisible = false
+                cardsLayout.isVisible = false
             }
-        } else {
-            emptyStateMessage.isVisible = false
-            purchasesScrollArea.isVisible = false
-            cardsLayout.isVisible = false
-            purchases.forEach { cardsLayout.add(buildCard(it)) }
+            purchases.isEmpty() -> {
+                showNoResultsEmptyState()
+                emptyStateMessage.isVisible = true
+                purchasesScrollArea.isVisible = false
+                cardsLayout.isVisible = false
+            }
+            else -> {
+                val currency = preferencesService.getCurrency()
+                emptyStateMessage.isVisible = false
+                purchasesScrollArea.isVisible = true
+                cardsLayout.isVisible = true
+                purchases.forEach { p -> cardsLayout.add(beanCard(p, currency) { showDetail(p) }) }
+            }
         }
-        analyticsPanel.update(purchases)
     }
 
     private fun showFirstUseEmptyState() {
         emptyStateMessage.removeAll()
-        emptyStateMessage.add(Span("☕").apply { style["font-size"] = "3rem" })
+        emptyStateMessage.add(Icon(VaadinIcon.COFFEE).apply {
+            setSize("3rem"); style["color"] = "var(--lumo-tertiary-text-color)"
+            element.setAttribute("aria-hidden", "true")
+        })
         emptyStateMessage.add(Span("No beans yet").apply {
             style["font-weight"] = "700"
             style["font-size"] = "var(--lumo-font-size-xl)"
@@ -490,7 +470,7 @@ class MainView(
             style["font-size"] = "var(--lumo-font-size-s)"
         })
         emptyStateMessage.add(
-            Button("Add your first bean") { navigateTo(1) }.apply {
+            Button("Add your first bean") { navigateTo(AppTab.ADD) }.apply {
                 setId("empty-state-cta")
                 addThemeVariants(ButtonVariant.LUMO_PRIMARY)
                 style["margin-top"] = "0.5rem"

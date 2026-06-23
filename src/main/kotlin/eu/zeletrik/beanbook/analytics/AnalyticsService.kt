@@ -5,20 +5,41 @@ import eu.zeletrik.beanbook.beans.RoastProfile
 import org.springframework.stereotype.Service
 import java.math.BigDecimal
 import java.math.RoundingMode
+import java.time.YearMonth
 
+/** Total spend in a calendar month, for the spend-over-time chart. */
+data class MonthlySpend(val month: YearMonth, val total: BigDecimal)
+
+/** Computes spending, pace, and breakdown statistics over a list of [BeanPurchase] records for the analytics dashboard. */
 @Service
 class AnalyticsService {
 
     fun totalCost(purchases: List<BeanPurchase>): BigDecimal =
-        purchases.fold(BigDecimal.ZERO) { acc, p -> acc + p.pricePerUnit }
+        purchases.fold(BigDecimal.ZERO) { acc, p -> acc + p.price }
+
+    /**
+     * Spend per purchase-month over the most recent [months]-month window ending at the latest
+     * purchase, with empty months zero-filled so the timeline is continuous (not gap-collapsed).
+     */
+    fun spendByMonth(purchases: List<BeanPurchase>, months: Int = 6): List<MonthlySpend> {
+        if (purchases.isEmpty()) return emptyList()
+        val totals = purchases
+            .groupBy { YearMonth.from(it.purchaseDate) }
+            .mapValues { (_, ps) -> ps.fold(BigDecimal.ZERO) { acc, p -> acc + p.price } }
+        val end = totals.keys.max()
+        val start = end.minusMonths((months - 1).toLong())
+        return generateSequence(start) { if (it < end) it.plusMonths(1) else null }
+            .map { MonthlySpend(it, totals[it] ?: BigDecimal.ZERO) }
+            .toList()
+    }
 
     fun totalSpendByBean(purchases: List<BeanPurchase>): Map<String, BigDecimal> =
         purchases.groupBy { it.name }
-            .mapValues { (_, ps) -> ps.fold(BigDecimal.ZERO) { acc, p -> acc + p.pricePerUnit } }
+            .mapValues { (_, ps) -> ps.fold(BigDecimal.ZERO) { acc, p -> acc + p.price } }
 
     fun totalSpendByRoaster(purchases: List<BeanPurchase>): Map<String, BigDecimal> =
         purchases.groupBy { it.roaster }
-            .mapValues { (_, ps) -> ps.fold(BigDecimal.ZERO) { acc, p -> acc + p.pricePerUnit } }
+            .mapValues { (_, ps) -> ps.fold(BigDecimal.ZERO) { acc, p -> acc + p.price } }
 
     fun averageCost(purchases: List<BeanPurchase>): BigDecimal {
         if (purchases.isEmpty()) return BigDecimal.ZERO
@@ -30,8 +51,9 @@ class AnalyticsService {
 
     fun mostCommonOrigin(purchases: List<BeanPurchase>): String? {
         if (purchases.isEmpty()) return null
-        val maxCount = originBreakdown(purchases).values.max()
-        return originBreakdown(purchases)
+        val breakdown = originBreakdown(purchases)
+        val maxCount = breakdown.values.max()
+        return breakdown
             .filter { (_, count) -> count == maxCount }
             .keys
             .minOrNull()
@@ -39,9 +61,9 @@ class AnalyticsService {
 
     fun mostExpensiveBean(purchases: List<BeanPurchase>): BeanPurchase? {
         if (purchases.isEmpty()) return null
-        val maxPrice = purchases.maxOf { it.pricePerUnit }
+        val maxPrice = purchases.maxOf { it.price }
         return purchases
-            .filter { it.pricePerUnit == maxPrice }
+            .filter { it.price == maxPrice }
             .minByOrNull { it.purchaseDate }
     }
 
@@ -49,7 +71,7 @@ class AnalyticsService {
         if (purchases.isEmpty()) return null
         val averageByRoaster = purchases.groupBy { it.roaster }
             .mapValues { (_, ps) ->
-                ps.fold(BigDecimal.ZERO) { acc, p -> acc + p.pricePerUnit }
+                ps.fold(BigDecimal.ZERO) { acc, p -> acc + p.price }
                     .divide(BigDecimal(ps.size), 10, RoundingMode.HALF_UP)
             }
         val maxAverage = averageByRoaster.values.max()
@@ -80,13 +102,19 @@ class AnalyticsService {
 
     fun spendByBrewMethod(purchases: List<BeanPurchase>): Map<BrewMethod, BigDecimal> {
         val base = BrewMethod.entries.associateWith { BigDecimal.ZERO }.toMutableMap()
-        purchases.forEach { p -> base[p.effectiveBrewMethod()] = (base[p.effectiveBrewMethod()] ?: BigDecimal.ZERO) + p.pricePerUnit }
+        purchases.forEach { p ->
+            val method = p.effectiveBrewMethod()
+            base[method] = (base[method] ?: BigDecimal.ZERO) + p.price
+        }
         return base
     }
 
     fun countByBrewMethod(purchases: List<BeanPurchase>): Map<BrewMethod, Int> {
         val base = BrewMethod.entries.associateWith { 0 }.toMutableMap()
-        purchases.forEach { p -> base[p.effectiveBrewMethod()] = (base[p.effectiveBrewMethod()] ?: 0) + 1 }
+        purchases.forEach { p ->
+            val method = p.effectiveBrewMethod()
+            base[method] = (base[method] ?: 0) + 1
+        }
         return base
     }
 

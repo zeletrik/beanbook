@@ -6,7 +6,7 @@ import com.github.mvysny.kaributesting.v10._value
 import eu.zeletrik.beanbook.analytics.AnalyticsService
 import eu.zeletrik.beanbook.beans.BeanPurchase
 import eu.zeletrik.beanbook.beans.BeanPurchaseService
-import eu.zeletrik.beanbook.beans.ExportService
+import eu.zeletrik.beanbook.backup.ExportService
 import tools.jackson.module.kotlin.jacksonObjectMapper
 import eu.zeletrik.beanbook.beans.Process
 import eu.zeletrik.beanbook.beans.RoastLevel
@@ -20,6 +20,7 @@ import java.math.BigDecimal
 import java.time.LocalDate
 import java.util.UUID
 
+/** Validates that the [PurchaseFormContent] enforces required fields and positive price/weight bounds before persisting a [BeanPurchase]. */
 class PurchaseFormValidationTest {
 
     private lateinit var repo: TestRepository
@@ -30,8 +31,8 @@ class PurchaseFormValidationTest {
     fun setup() {
         MockVaadin.setup()
         repo = TestRepository()
-        view = MainView(BeanPurchaseService(repo, repo), AnalyticsService(), ExportService(BeanPurchaseService(repo, repo), object : eu.zeletrik.beanbook.wishlist.WishlistService(org.springframework.jdbc.core.JdbcTemplate()) { override fun findAll() = emptyList<eu.zeletrik.beanbook.wishlist.WishlistItem>() }, jacksonObjectMapper()), eu.zeletrik.beanbook.TestImportService(), eu.zeletrik.beanbook.TestPreferencesService(), eu.zeletrik.beanbook.TestWishlistService())
-        view.navigateTo(2)  // make Add page visible
+        view = testMainView(repo)
+        view.navigateTo(AppTab.ADD)  // make Add page visible
         addForm = view.addFormContent
     }
 
@@ -78,9 +79,9 @@ class PurchaseFormValidationTest {
         assertEquals(countBefore, view.purchaseCount)
     }
 
-    // AC-5: pricePerUnit > 0 accepted
+    // AC-5: price > 0 accepted
     @Test
-    fun `pricePerUnit greater than zero is accepted`() {
+    fun `price greater than zero is accepted`() {
         fillValidForm()
         addForm.priceField._value = BigDecimal("0.01")
         val countBefore = view.purchaseCount
@@ -88,9 +89,9 @@ class PurchaseFormValidationTest {
         assertEquals(countBefore + 1, view.purchaseCount)
     }
 
-    // AC-6: pricePerUnit = 0 rejected (boundary)
+    // AC-6: price = 0 rejected (boundary)
     @Test
-    fun `pricePerUnit equal to zero is rejected`() {
+    fun `price equal to zero is rejected`() {
         fillValidForm()
         addForm.priceField._value = BigDecimal.ZERO
         val countBefore = view.purchaseCount
@@ -98,9 +99,9 @@ class PurchaseFormValidationTest {
         assertEquals(countBefore, view.purchaseCount)
     }
 
-    // AC-7: pricePerUnit < 0 rejected (beyond boundary)
+    // AC-7: price < 0 rejected (beyond boundary)
     @Test
-    fun `pricePerUnit less than zero is rejected`() {
+    fun `price less than zero is rejected`() {
         fillValidForm()
         addForm.priceField._value = BigDecimal("-1.00")
         val countBefore = view.purchaseCount

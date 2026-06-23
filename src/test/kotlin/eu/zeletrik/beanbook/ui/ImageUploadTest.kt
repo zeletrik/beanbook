@@ -8,7 +8,7 @@ import com.github.mvysny.kaributesting.v10._value
 import eu.zeletrik.beanbook.analytics.AnalyticsService
 import eu.zeletrik.beanbook.beans.BeanPurchase
 import eu.zeletrik.beanbook.beans.BeanPurchaseService
-import eu.zeletrik.beanbook.beans.ExportService
+import eu.zeletrik.beanbook.backup.ExportService
 import tools.jackson.module.kotlin.jacksonObjectMapper
 import eu.zeletrik.beanbook.beans.Process
 import eu.zeletrik.beanbook.beans.RoastLevel
@@ -25,6 +25,7 @@ import java.math.BigDecimal
 import java.time.LocalDate
 import java.util.UUID
 
+/** Tests image upload validation (type, size) and image display in the purchase form. */
 class ImageUploadTest {
 
     private lateinit var repo: ImageTestRepository
@@ -35,8 +36,8 @@ class ImageUploadTest {
     fun setup() {
         MockVaadin.setup()
         repo = ImageTestRepository()
-        view = MainView(BeanPurchaseService(repo, repo), AnalyticsService(), ExportService(BeanPurchaseService(repo, repo), object : eu.zeletrik.beanbook.wishlist.WishlistService(org.springframework.jdbc.core.JdbcTemplate()) { override fun findAll() = emptyList<eu.zeletrik.beanbook.wishlist.WishlistItem>() }, jacksonObjectMapper()), eu.zeletrik.beanbook.TestImportService(), eu.zeletrik.beanbook.TestPreferencesService(), eu.zeletrik.beanbook.TestWishlistService())
-        view.navigateTo(2)  // make Add page visible
+        view = testMainView(repo)
+        view.navigateTo(AppTab.ADD)  // make Add page visible
         addForm = view.addFormContent
     }
 
@@ -45,7 +46,7 @@ class ImageUploadTest {
 
     private fun purchase(name: String = "Bean", imageData: ByteArray? = null) = BeanPurchase(
         id = UUID.randomUUID(), name = name, roaster = "Roaster", origin = "Ethiopia",
-        pricePerUnit = BigDecimal("15.00"), weightGrams = 250,
+        price = BigDecimal("15.00"), weightGrams = 250,
         purchaseDate = LocalDate.of(2025, 1, 1), roastDate = LocalDate.of(2024, 12, 28),
         roastLevel = RoastLevel.MEDIUM, process = Process.WASHED, imageData = imageData,
         roastProfile = eu.zeletrik.beanbook.beans.RoastProfile.FILTER,

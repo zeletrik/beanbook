@@ -5,7 +5,7 @@ import com.github.mvysny.kaributesting.v10._value
 import eu.zeletrik.beanbook.analytics.AnalyticsService
 import eu.zeletrik.beanbook.beans.BeanPurchase
 import eu.zeletrik.beanbook.beans.BeanPurchaseService
-import eu.zeletrik.beanbook.beans.ExportService
+import eu.zeletrik.beanbook.backup.ExportService
 import tools.jackson.module.kotlin.jacksonObjectMapper
 import eu.zeletrik.beanbook.beans.Process
 import eu.zeletrik.beanbook.beans.RoastLevel
@@ -22,6 +22,7 @@ import java.math.BigDecimal
 import java.time.LocalDate
 import java.util.UUID
 
+/** Verifies the duplicate-purchase flow: profile fields are pre-filled while transaction fields reset, and the duplicate stays independent of its source. */
 class DuplicateTest {
 
     private lateinit var repo: DuplicateTestRepository
@@ -31,7 +32,7 @@ class DuplicateTest {
     fun setup() {
         MockVaadin.setup()
         repo = DuplicateTestRepository()
-        view = MainView(BeanPurchaseService(repo, repo), AnalyticsService(), ExportService(BeanPurchaseService(repo, repo), object : eu.zeletrik.beanbook.wishlist.WishlistService(org.springframework.jdbc.core.JdbcTemplate()) { override fun findAll() = emptyList<eu.zeletrik.beanbook.wishlist.WishlistItem>() }, jacksonObjectMapper()), eu.zeletrik.beanbook.TestImportService(), eu.zeletrik.beanbook.TestPreferencesService(), eu.zeletrik.beanbook.TestWishlistService())
+        view = testMainView(repo)
     }
 
     @AfterEach
@@ -40,7 +41,7 @@ class DuplicateTest {
     private fun sourcePurchase(grind: String? = "4 clicks") = BeanPurchase(
         id = UUID.randomUUID(),
         name = "Yirgacheffe", roaster = "Square Mile", origin = "Ethiopia",
-        pricePerUnit = BigDecimal("18.50"), weightGrams = 250,
+        price = BigDecimal("18.50"), weightGrams = 250,
         purchaseDate = LocalDate.of(2025, 3, 10), roastDate = LocalDate.of(2025, 3, 5),
         roastLevel = RoastLevel.LIGHT, process = Process.NATURAL,
         notes = "Blueberry", grindSettings = grind,
@@ -53,7 +54,7 @@ class DuplicateTest {
         view.refreshView()
         // Simulate the onDuplicate callback: navigate first (triggers openForCreate via tab listener),
         // then overlay profile fields — same order as MainView.onDuplicate
-        view.navigateTo(2)
+        view.navigateTo(AppTab.ADD)
         view.addFormContent.openWithProfile(purchase)
     }
 
@@ -135,7 +136,7 @@ class DuplicateTest {
         // Source remains unchanged
         val sourceAfter = repo.findAll().first { it.id == source.id }
         assertEquals("Yirgacheffe", sourceAfter.name)
-        assertEquals(BigDecimal("18.50"), sourceAfter.pricePerUnit)
+        assertEquals(BigDecimal("18.50"), sourceAfter.price)
         assertEquals(250, sourceAfter.weightGrams)
     }
 

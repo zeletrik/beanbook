@@ -7,20 +7,60 @@ import com.vaadin.flow.component.notification.Notification.Position
 import com.vaadin.flow.component.notification.NotificationVariant
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout
 
+/**
+ * Shows Lumo-themed [Notification] toasts (success, success-with-undo, error) anchored to the
+ * bottom centre of the screen.
+ */
 object NotificationHelper {
 
-    // Test seam: captures (text, isError) pairs so tests can assert without Karibu overlay search.
-    internal val _shown = mutableListOf<Pair<String, Boolean>>()
+    private const val SUCCESS_DURATION_MS = 3000
+
+    /** Undo toasts linger longer than a plain success so the user has time to react. */
+    private const val UNDO_DURATION_MS = 6000
+
+    /**
+     * Test seam: tests install a recorder to capture (text, isError) without searching the Karibu
+     * overlay. Null in production, so nothing is retained (the old always-on list grew unbounded).
+     */
+    internal var recorder: ((text: String, isError: Boolean) -> Unit)? = null
 
     fun success(text: String) {
-        _shown.add(text to false)
-        Notification.show(text, 3000, Position.BOTTOM_CENTER).apply {
+        recorder?.invoke(text, false)
+        Notification.show(text, SUCCESS_DURATION_MS, Position.BOTTOM_CENTER).apply {
             addThemeVariants(NotificationVariant.LUMO_SUCCESS)
         }
     }
 
+    /**
+     * Success toast with an inline "Undo" action. Recorded as a non-error toast so existing
+     * notification assertions (which only inspect text + isError) keep matching.
+     */
+    fun successWithUndo(text: String, onUndo: () -> Unit) {
+        recorder?.invoke(text, false)
+        val notification = Notification().apply {
+            position = Position.BOTTOM_CENTER
+            duration = UNDO_DURATION_MS
+            addThemeVariants(NotificationVariant.LUMO_SUCCESS)
+        }
+        val undoButton = Button("Undo") {
+            onUndo()
+            notification.close()
+        }.apply {
+            addThemeVariants(ButtonVariant.LUMO_TERTIARY_INLINE)
+            element.setAttribute("aria-label", "Undo")
+        }
+        notification.add(HorizontalLayout(
+            com.vaadin.flow.component.html.Span(text),
+            undoButton,
+        ).apply {
+            style["align-items"] = "center"
+            style["gap"] = "0.5rem"
+        })
+        notification.open()
+    }
+
     fun error(text: String) {
-        _shown.add(text to true)
+        recorder?.invoke(text, true)
         val notification = Notification().apply {
             position = Position.BOTTOM_CENTER
             duration = 0

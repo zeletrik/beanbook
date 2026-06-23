@@ -1,18 +1,16 @@
 [versions]
 kotlin = "2.4.0"
 detekt = "2.0.0-alpha.3"
-graalvm-toolkit =  "1.1.1"
-sqlite-jdbc = "3.53.1.0"
+sqlite-jdbc = "3.53.2.0"
 spring-boot = "4.1.0"
 spring-dependency-management = "1.1.7"
-vaadin = "25.1.6"
-spring-modulith = "2.0.6"
+vaadin = "25.1.8"
+spring-modulith = "2.1.0"
 
 [libraries]
 spring-boot-starter-webmvc = { module = "org.springframework.boot:spring-boot-starter-webmvc" }
 spring-boot-starter-webmvc-test = { module = "org.springframework.boot:spring-boot-starter-webmvc-test" }
 spring-boot-devtools = { module = "org.springframework.boot:spring-boot-devtools" }
-spring-boot-docker-compose = { module = "org.springframework.boot:spring-boot-docker-compose" }
 vaadin-dev = { module = "com.vaadin:vaadin-dev" }
 vaadin-spring-boot-starter = { module = "com.vaadin:vaadin-spring-boot-starter" }
 vaadin-bom = { module = "com.vaadin:vaadin-bom", version.ref = "vaadin" }
@@ -35,5 +33,4 @@ kotlin-spring = { id = "org.jetbrains.kotlin.plugin.spring", version.ref = "kotl
 spring-boot = { id = "org.springframework.boot", version.ref = "spring-boot" }
 spring-dependency-management = { id = "io.spring.dependency-management", version.ref = "spring-dependency-management" }
 vaadin = { id = "com.vaadin", version.ref = "vaadin" }
-graalvm-toolkit = { id = "org.graalvm.buildtools.native", version.ref = "graalvm-toolkit" }
 

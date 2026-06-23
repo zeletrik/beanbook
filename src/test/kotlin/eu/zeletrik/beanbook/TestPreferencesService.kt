@@ -1,5 +1,6 @@
 package eu.zeletrik.beanbook
 
+import eu.zeletrik.beanbook.preferences.PreferencesService
 import org.springframework.jdbc.core.JdbcTemplate
 
 /**

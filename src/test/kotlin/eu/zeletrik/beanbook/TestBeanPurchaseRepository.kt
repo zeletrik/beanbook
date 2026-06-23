@@ -2,17 +2,15 @@ package eu.zeletrik.beanbook
 
 import eu.zeletrik.beanbook.beans.BeanPurchase
 import eu.zeletrik.beanbook.beans.internal.BeanPurchaseRepository
-import eu.zeletrik.beanbook.beans.internal.BeanPurchaseSavePort
 import java.util.Optional
 import java.util.UUID
 
 /**
- * In-memory repository for unit tests implementing both BeanPurchaseRepository (reads/deletes)
- * and BeanPurchaseSavePort (upserts). Both interfaces declare the same generic save() signature,
- * so a single implementation satisfies both.
- * Pass the same instance for both BeanPurchaseService constructor args: BeanPurchaseService(repo, repo).
+ * In-memory [BeanPurchaseRepository] for unit tests. save() upserts by id, so it serves both
+ * inserts and updates regardless of the entity's isNew flag.
+ * Construct the service with: BeanPurchaseService(repo).
  */
-abstract class TestBeanPurchaseRepository : BeanPurchaseRepository, BeanPurchaseSavePort {
+abstract class TestBeanPurchaseRepository : BeanPurchaseRepository {
     val store = mutableListOf<BeanPurchase>()
 
     @Suppress("UNCHECKED_CAST")

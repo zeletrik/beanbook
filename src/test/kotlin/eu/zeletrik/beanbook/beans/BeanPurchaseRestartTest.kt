@@ -18,6 +18,7 @@ import java.nio.file.Path
 import java.time.LocalDate
 import java.util.UUID
 
+/** Verifies that [BeanPurchase] data persists to the configured file path and survives a Spring context restart. */
 @SpringBootTest
 @TestMethodOrder(MethodOrderer.OrderAnnotation::class)
 class BeanPurchaseRestartTest {
@@ -37,7 +38,7 @@ class BeanPurchaseRestartTest {
             name = "Restart Survivor",
             roaster = "Test Roaster",
             origin = "Brazil",
-            pricePerUnit = BigDecimal("21.00"),
+            price = BigDecimal("21.00"),
             weightGrams = 250,
             purchaseDate = LocalDate.of(2025, 5, 1),
             roastDate = LocalDate.of(2025, 4, 25),
@@ -73,7 +74,7 @@ class BeanPurchaseRestartTest {
         val found = service.findAll().firstOrNull { it.id == KNOWN_ID }
         val bean = checkNotNull(found) { "bean should survive context restart" }
         assertEquals("Restart Survivor", bean.name)
-        assertEquals(BigDecimal("21.00"), bean.pricePerUnit)
+        assertEquals(BigDecimal("21.00"), bean.price)
     }
 
     // AC-17: the configured URL path is actually used (read/write go to the same store)

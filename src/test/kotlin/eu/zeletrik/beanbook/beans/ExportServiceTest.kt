@@ -1,6 +1,8 @@
 package eu.zeletrik.beanbook.beans
 
 import eu.zeletrik.beanbook.TestBeanPurchaseRepository
+import eu.zeletrik.beanbook.TestWishlistRepository
+import eu.zeletrik.beanbook.backup.ExportService
 import eu.zeletrik.beanbook.wishlist.WishlistItem
 import eu.zeletrik.beanbook.wishlist.WishlistService
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -14,15 +16,21 @@ import java.time.LocalDate
 import java.util.Base64
 import java.util.UUID
 
+/**
+ * Verifies that [ExportService] serialises purchases and wishlist items into the expected JSON structure.
+ */
 class ExportServiceTest {
 
     private val objectMapper = jacksonObjectMapper()
 
-    // Stub WishlistService backed by an in-memory list.
-    // WishlistService is open (kotlin-spring plugin). JdbcTemplate() (no DataSource)
-    // is safe since all methods are overridden and never call super.
+    /**
+     * Stub [WishlistService] backed by an in-memory list.
+     *
+     * [WishlistService] is open (kotlin-spring plugin). `JdbcTemplate()` (no `DataSource`)
+     * is safe since all methods are overridden and never call super.
+     */
     private fun wishlistService(items: List<WishlistItem> = emptyList()): WishlistService =
-        object : WishlistService(JdbcTemplate()) {
+        object : WishlistService(TestWishlistRepository()) {
             private val store = items.toMutableList()
             override fun findAll() = store.toList()
             override fun upsert(item: WishlistItem) { store.removeIf { it.id == item.id }; store.add(item) }
@@ -34,7 +42,7 @@ class ExportServiceTest {
         wishlistItems: List<WishlistItem> = emptyList(),
     ): ExportService {
         val repo = object : TestBeanPurchaseRepository() { init { store.addAll(beans.toList()) } }
-        val service = BeanPurchaseService(repo, repo)
+        val service = BeanPurchaseService(repo)
         return ExportService(service, wishlistService(wishlistItems), objectMapper)
     }
 
@@ -44,7 +52,7 @@ class ExportServiceTest {
         imageData: ByteArray? = null,
     ) = BeanPurchase(
         id = id, name = name, roaster = "Roaster", origin = "Ethiopia",
-        pricePerUnit = BigDecimal("18.50"), weightGrams = 250,
+        price = BigDecimal("18.50"), weightGrams = 250,
         purchaseDate = LocalDate.of(2025, 1, 15), roastDate = LocalDate.of(2025, 1, 10),
         roastLevel = RoastLevel.LIGHT, process = Process.NATURAL,
         roastProfile = eu.zeletrik.beanbook.beans.RoastProfile.FILTER,

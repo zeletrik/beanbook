@@ -11,7 +11,7 @@ import eu.zeletrik.beanbook.TestBeanPurchaseRepository
 import eu.zeletrik.beanbook.analytics.AnalyticsService
 import eu.zeletrik.beanbook.beans.BeanPurchase
 import eu.zeletrik.beanbook.beans.BeanPurchaseService
-import eu.zeletrik.beanbook.beans.ExportService
+import eu.zeletrik.beanbook.backup.ExportService
 import eu.zeletrik.beanbook.beans.Process
 import eu.zeletrik.beanbook.beans.RoastLevel
 import org.junit.jupiter.api.AfterEach
@@ -24,6 +24,7 @@ import java.math.BigDecimal
 import java.time.LocalDate
 import java.util.UUID
 
+/** Verifies the [MainView] empty-state behaviour: the first-use empty state with CTA and the no-results state when filters or search match nothing. */
 class EmptyStateTest {
 
     @BeforeEach fun setup() = MockVaadin.setup()
@@ -31,16 +32,14 @@ class EmptyStateTest {
 
     private fun purchase(name: String = "Bean ${ UUID.randomUUID() }") = BeanPurchase(
         id = UUID.randomUUID(), name = name, roaster = "R", origin = "Ethiopia",
-        pricePerUnit = BigDecimal("15.00"), weightGrams = 250,
+        price = BigDecimal("15.00"), weightGrams = 250,
         purchaseDate = LocalDate.of(2025, 1, 1), roastDate = LocalDate.of(2024, 12, 28),
         roastLevel = RoastLevel.MEDIUM, process = Process.WASHED,
         roastProfile = eu.zeletrik.beanbook.beans.RoastProfile.FILTER,
     )
 
     private fun makeView(items: List<BeanPurchase> = emptyList()): MainView {
-        val repo = object : TestBeanPurchaseRepository() { init { store.addAll(items) } }
-        val service = BeanPurchaseService(repo, repo)
-        return MainView(service, AnalyticsService(), ExportService(service, object : eu.zeletrik.beanbook.wishlist.WishlistService(org.springframework.jdbc.core.JdbcTemplate()) { override fun findAll() = emptyList<eu.zeletrik.beanbook.wishlist.WishlistItem>() }, jacksonObjectMapper()), eu.zeletrik.beanbook.TestImportService(), eu.zeletrik.beanbook.TestPreferencesService(), eu.zeletrik.beanbook.TestWishlistService())
+        return testMainView(testRepository(items))
     }
 
     // AC-24: first-use empty state shows icon, "No beans yet" heading, and CTA
@@ -56,8 +55,8 @@ class EmptyStateTest {
             "Expected 'No beans yet' heading, found: ${spans.map { it.text }}"
         )
         assertTrue(
-            spans.any { it.text == "☕" },
-            "Expected coffee cup icon span"
+            view.emptyStateMessage._find<com.vaadin.flow.component.icon.Icon>().isNotEmpty(),
+            "Expected a coffee placeholder icon"
         )
     }
 

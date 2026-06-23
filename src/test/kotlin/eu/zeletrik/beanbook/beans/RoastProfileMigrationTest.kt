@@ -18,6 +18,9 @@ import org.springframework.test.context.DynamicPropertySource
 import java.nio.file.Path
 import java.util.UUID
 
+/**
+ * Verifies the V2 migration backfills existing [BeanPurchase] rows with a default [RoastProfile] of OMNI and a null `usedAs`.
+ */
 @SpringBootTest
 @TestMethodOrder(MethodOrderer.OrderAnnotation::class)
 class RoastProfileMigrationTest {

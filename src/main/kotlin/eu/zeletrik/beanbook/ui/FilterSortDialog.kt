@@ -15,6 +15,12 @@ import eu.zeletrik.beanbook.beans.BagState
 import eu.zeletrik.beanbook.beans.Process
 import eu.zeletrik.beanbook.beans.RoastLevel
 
+/**
+ * Modal dialog for choosing sort order and filter criteria, producing a [FilterState] passed back via [onApply].
+ *
+ * @param onApply invoked with the assembled [FilterState] when the user confirms.
+ * @param getAvailableTags supplies the tag options shown in the dialog; the tags section is hidden when this is empty.
+ */
 class FilterSortDialog(
     private val onApply: (FilterState) -> Unit,
     private val getAvailableTags: () -> Set<String> = { emptySet() },
@@ -33,19 +39,19 @@ class FilterSortDialog(
     private val roastGroup = CheckboxGroup<RoastLevel>().apply {
         label = "Roast level"
         setItems(*RoastLevel.entries.toTypedArray())
-        setItemLabelGenerator { it.name.lowercase().replaceFirstChar { c -> c.uppercase() } }
+        setItemLabelGenerator { it.displayName() }
     }
 
     private val processGroup = CheckboxGroup<Process>().apply {
         label = "Process"
         setItems(*Process.entries.toTypedArray())
-        setItemLabelGenerator { it.name.lowercase().replaceFirstChar { c -> c.uppercase() } }
+        setItemLabelGenerator { it.displayName() }
     }
 
     private val stateGroup = CheckboxGroup<BagState>().apply {
         label = "State"
         setItems(*BagState.entries.toTypedArray())
-        setItemLabelGenerator { it.name.lowercase().replaceFirstChar { c -> c.uppercase() } }
+        setItemLabelGenerator { it.displayName() }
     }
 
     // 0 = "Any rating" sentinel (Select can't hold null items in Vaadin 25)
@@ -62,6 +68,13 @@ class FilterSortDialog(
     private val tagsSection = VerticalLayout().apply {
         isPadding = false; isSpacing = false
     }
+
+    /**
+     * Remembers the active search query so it can be passed back unchanged on Apply (and Reset).
+     *
+     * The dialog doesn't edit the search query; otherwise applying filters would silently clear an active search.
+     */
+    private var openQuery: String = ""
 
     init {
         setHeaderTitle("Filter & Sort")
@@ -105,6 +118,7 @@ class FilterSortDialog(
     }
 
     fun openWith(state: FilterState) {
+        openQuery = state.query
         val available = getAvailableTags()
         tagsGroup.setItems(*available.toTypedArray())
         tagsSection.isVisible = available.isNotEmpty()
@@ -124,6 +138,7 @@ class FilterSortDialog(
     }
 
     private fun currentState() = FilterState(
+        query = openQuery,
         sortBy = sortGroup.value ?: SortField.PURCHASE_DATE,
         ascending = ascending,
         roastLevels = roastGroup.value ?: emptySet(),

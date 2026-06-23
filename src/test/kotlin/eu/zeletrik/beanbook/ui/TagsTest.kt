@@ -6,6 +6,7 @@ import com.github.mvysny.kaributesting.v10._get
 import com.vaadin.flow.component.checkbox.CheckboxGroup
 import com.vaadin.flow.component.combobox.MultiSelectComboBox
 import com.vaadin.flow.component.html.Span
+import com.vaadin.flow.component.orderedlayout.HorizontalLayout
 import eu.zeletrik.beanbook.TestBeanPurchaseRepository
 import eu.zeletrik.beanbook.TestImportService
 import eu.zeletrik.beanbook.TestPreferencesService
@@ -13,7 +14,7 @@ import eu.zeletrik.beanbook.TestWishlistService
 import eu.zeletrik.beanbook.analytics.AnalyticsService
 import eu.zeletrik.beanbook.beans.BeanPurchase
 import eu.zeletrik.beanbook.beans.BeanPurchaseService
-import eu.zeletrik.beanbook.beans.ExportService
+import eu.zeletrik.beanbook.backup.ExportService
 import eu.zeletrik.beanbook.beans.Process
 import eu.zeletrik.beanbook.beans.RoastLevel
 import eu.zeletrik.beanbook.beans.RoastProfile
@@ -28,23 +29,24 @@ import java.math.BigDecimal
 import java.time.LocalDate
 import java.util.UUID
 
+/** UI tests covering bean tag entry, display, filtering, search, and normalisation in [MainView]. */
 class TagsTest {
 
     @BeforeEach fun setup() {
         MockVaadin.setup()
-        NotificationHelper._shown.clear()
+        RecordedNotifications.install()
     }
     @AfterEach fun teardown() {
         MockVaadin.tearDown()
-        NotificationHelper._shown.clear()
+        RecordedNotifications.reset()
     }
 
     private fun purchase(
         name: String = "Test Bean",
-        tags: List<String> = emptyList(),
+        tags: Set<String> = emptySet(),
     ) = BeanPurchase(
         id = UUID.randomUUID(), name = name, roaster = "R", origin = "E",
-        pricePerUnit = BigDecimal("15.00"), weightGrams = 250,
+        price = BigDecimal("15.00"), weightGrams = 250,
         purchaseDate = LocalDate.of(2025, 1, 1), roastDate = LocalDate.of(2024, 12, 28),
         roastLevel = RoastLevel.MEDIUM, process = Process.WASHED,
         roastProfile = RoastProfile.FILTER, tags = tags,
@@ -52,7 +54,7 @@ class TagsTest {
 
     private fun makeView(items: List<BeanPurchase> = emptyList()): MainView {
         val repo = object : TestBeanPurchaseRepository() { init { store.addAll(items) } }
-        val service = BeanPurchaseService(repo, repo)
+        val service = BeanPurchaseService(repo)
         val wishlist = TestWishlistService()
         val exportService = ExportService(service, wishlist, jacksonObjectMapper())
         return MainView(service, AnalyticsService(), exportService, TestImportService(),
@@ -75,7 +77,7 @@ class TagsTest {
     @Test
     fun `tag input field is present in the add form`() {
         val view = makeView()
-        view.navigateTo(2)
+        view.navigateTo(AppTab.ADD)
         assertTrue(view.addFormContent.tagsField.isVisible, "tagsField must be visible")
     }
 
@@ -83,13 +85,13 @@ class TagsTest {
     @Test
     fun `tags entered in form are saved and appear in detail view`() {
         val repo = object : TestBeanPurchaseRepository() {}
-        val service = BeanPurchaseService(repo, repo)
+        val service = BeanPurchaseService(repo)
         val wishlist = TestWishlistService()
         val exportService = ExportService(service, wishlist, jacksonObjectMapper())
         val view = MainView(service, AnalyticsService(), exportService, TestImportService(),
             TestPreferencesService(), wishlist)
 
-        view.navigateTo(2)
+        view.navigateTo(AppTab.ADD)
         fillRequiredForm(view, "Tagged Bean")
         view.addFormContent.tagsField.value = setOf("fruity", "natural")
         view.addFormContent.saveButton.click()
@@ -98,32 +100,28 @@ class TagsTest {
         assertTrue(saved.tags.contains("fruity"), "fruity tag must be saved")
         assertTrue(saved.tags.contains("natural"), "natural tag must be saved")
 
-        // Detail view shows tags
+        // Detail view shows the tags row containing exactly the saved tags.
         view.detailView.show(saved)
-        val detailSpans = view.detailView._find<Span>()
-        assertTrue(
-            detailSpans.any { it.text.contains("fruity") || it.text.contains("natural") },
-            "Tags must appear in detail view"
-        )
+        val tagsRow = view.detailView._get<HorizontalLayout> { id = "detail-tags-row" }
+        val tagsText = tagsRow.element.textRecursively
+        assertTrue(tagsText.contains("fruity"), "Tags row must contain 'fruity', was: $tagsText")
+        assertTrue(tagsText.contains("natural"), "Tags row must contain 'natural', was: $tagsText")
     }
 
     // AC-6: (c) Bean with no tags shows no tags section in detail view
     @Test
     fun `bean with no tags shows no tags section in detail view`() {
-        val p = purchase(name = "No Tags", tags = emptyList())
+        val p = purchase(name = "No Tags", tags = emptySet())
         val view = makeView(listOf(p))
         view.detailView.show(p)
-        val detailSpans = view.detailView._find<Span>()
-        assertFalse(
-            detailSpans.any { it.text == "Tags" },
-            "Tags label must not be present for bean with no tags"
-        )
+        val tagsRows = view.detailView._find<HorizontalLayout> { id = "detail-tags-row" }
+        assertTrue(tagsRows.isEmpty(), "Tags row must be absent for a bean with no tags")
     }
 
     // AC-9: (d) Tag filter in FilterSortDialog filters the list
     @Test
     fun `tag filter shows only beans with matching tags`() {
-        val tagged = purchase(name = "Tagged", tags = listOf("fruity"))
+        val tagged = purchase(name = "Tagged", tags = setOf("fruity"))
         val untagged = purchase(name = "Plain")
         val view = makeView(listOf(tagged, untagged))
 
@@ -155,8 +153,8 @@ class TagsTest {
     // AC-11: (f) Search matches beans by tag content
     @Test
     fun `search by tag name returns matching bean`() {
-        val tagged = purchase(name = "Colombia Washed", tags = listOf("fruity"))
-        val other = purchase(name = "Ethiopia Natural", tags = listOf("chocolate"))
+        val tagged = purchase(name = "Colombia Washed", tags = setOf("fruity"))
+        val other = purchase(name = "Ethiopia Natural", tags = setOf("chocolate"))
         val view = makeView(listOf(tagged, other))
 
         view.searchField.value = "fruity"
@@ -172,7 +170,7 @@ class TagsTest {
     @Test
     fun `adding more than 10 tags is rejected with notification`() {
         val view = makeView()
-        view.navigateTo(2)
+        view.navigateTo(AppTab.ADD)
 
         // Set 10 tags via the value directly
         val tenTags = (1..10).map { "tag$it" }.toSet()
@@ -184,7 +182,7 @@ class TagsTest {
 
         // ValueChangeListener should have reverted and shown error
         assertTrue(
-            NotificationHelper._shown.any { (text, isError) -> isError && text.contains("10") },
+            RecordedNotifications.shown.any { (text, isError) -> isError && text.contains("10") },
             "Error notification for exceeding 10 tags must be shown"
         )
         assertEquals(10, view.addFormContent.tagsField.value.size, "Tags count must remain at 10")
@@ -194,25 +192,25 @@ class TagsTest {
     @Test
     fun `tags of 19 and 20 characters are accepted`() {
         val view = makeView()
-        view.navigateTo(2)
+        view.navigateTo(AppTab.ADD)
 
         val tag19 = "a".repeat(19)
         val tag20 = "a".repeat(20)
 
         // Simulate custom value events directly on the field
         // We verify by checking no error notification is shown
-        NotificationHelper._shown.clear()
+        RecordedNotifications.shown.clear()
 
         // Direct set — these are within limits, so no error
         view.addFormContent.tagsField.value = setOf(tag19)
         assertTrue(
-            NotificationHelper._shown.none { it.second },
+            RecordedNotifications.shown.none { it.second },
             "Tag of 19 chars must not produce error"
         )
 
         view.addFormContent.tagsField.value = setOf(tag20)
         assertTrue(
-            NotificationHelper._shown.none { it.second },
+            RecordedNotifications.shown.none { it.second },
             "Tag of 20 chars must not produce error"
         )
     }
@@ -223,13 +221,13 @@ class TagsTest {
     @Test
     fun `tag normalisation in beanFromBean trims and lowercases but does not truncate`() {
         val repo = object : TestBeanPurchaseRepository() {}
-        val service = BeanPurchaseService(repo, repo)
+        val service = BeanPurchaseService(repo)
         val wishlist = TestWishlistService()
         val exportService = ExportService(service, wishlist, jacksonObjectMapper())
         val view = MainView(service, AnalyticsService(), exportService, TestImportService(),
             TestPreferencesService(), wishlist)
 
-        view.navigateTo(2)
+        view.navigateTo(AppTab.ADD)
         fillRequiredForm(view, "Normalise Test")
         // " Fruity " should become "fruity"; "DARK" → "dark"
         view.addFormContent.tagsField.value = setOf(" Fruity ", "DARK")
@@ -245,13 +243,13 @@ class TagsTest {
     @Test
     fun `whitespace-only tag is not saved after normalisation`() {
         val repo = object : TestBeanPurchaseRepository() {}
-        val service = BeanPurchaseService(repo, repo)
+        val service = BeanPurchaseService(repo)
         val wishlist = TestWishlistService()
         val exportService = ExportService(service, wishlist, jacksonObjectMapper())
         val view = MainView(service, AnalyticsService(), exportService, TestImportService(),
             TestPreferencesService(), wishlist)
 
-        view.navigateTo(2)
+        view.navigateTo(AppTab.ADD)
         fillRequiredForm(view, "Blank Tag Test")
         // "   " trims to blank and is filtered in beanFromBean()
         view.addFormContent.tagsField.value = setOf("   ", "fruity")

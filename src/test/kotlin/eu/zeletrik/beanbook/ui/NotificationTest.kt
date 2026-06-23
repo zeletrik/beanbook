@@ -8,11 +8,10 @@ import eu.zeletrik.beanbook.analytics.AnalyticsService
 import eu.zeletrik.beanbook.beans.BagState
 import eu.zeletrik.beanbook.beans.BeanPurchase
 import eu.zeletrik.beanbook.beans.BeanPurchaseService
-import eu.zeletrik.beanbook.beans.ExportService
+import eu.zeletrik.beanbook.backup.ExportService
 import tools.jackson.module.kotlin.jacksonObjectMapper
 import eu.zeletrik.beanbook.beans.Process
 import eu.zeletrik.beanbook.beans.RoastLevel
-import eu.zeletrik.beanbook.beans.internal.BeanPurchaseSavePort
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -22,18 +21,19 @@ import java.math.BigDecimal
 import java.time.LocalDate
 import java.util.UUID
 
+/** Verifies user-facing notifications for save, delete, undo, and state-transition flows in [MainView]. */
 class NotificationTest {
 
     @BeforeEach
     fun setup() {
         MockVaadin.setup()
-        NotificationHelper._shown.clear()
+        RecordedNotifications.install()
     }
 
     @AfterEach
     fun teardown() {
         MockVaadin.tearDown()
-        NotificationHelper._shown.clear()
+        RecordedNotifications.reset()
     }
 
     private fun purchase(name: String = "Test Bean", bagState: BagState = BagState.SEALED): BeanPurchase {
@@ -41,7 +41,7 @@ class NotificationTest {
         val finishedDate = if (bagState == BagState.FINISHED) LocalDate.of(2025, 2, 15) else null
         return BeanPurchase(
             id = UUID.randomUUID(), name = name, roaster = "R", origin = "Ethiopia",
-            pricePerUnit = BigDecimal("15.00"), weightGrams = 250,
+            price = BigDecimal("15.00"), weightGrams = 250,
             purchaseDate = LocalDate.of(2025, 1, 1), roastDate = LocalDate.of(2024, 12, 28),
             roastLevel = RoastLevel.MEDIUM, process = Process.WASHED,
             openedDate = openedDate, finishedDate = finishedDate,
@@ -49,8 +49,14 @@ class NotificationTest {
         )
     }
 
-    private fun makeView(repo: TestBeanPurchaseRepository, port: BeanPurchaseSavePort = repo): MainView =
-        MainView(BeanPurchaseService(repo, port), AnalyticsService(), ExportService(BeanPurchaseService(repo, port), object : eu.zeletrik.beanbook.wishlist.WishlistService(org.springframework.jdbc.core.JdbcTemplate()) { override fun findAll() = emptyList<eu.zeletrik.beanbook.wishlist.WishlistItem>() }, jacksonObjectMapper()), eu.zeletrik.beanbook.TestImportService(), eu.zeletrik.beanbook.TestPreferencesService(), eu.zeletrik.beanbook.TestWishlistService())
+    /** A repository whose save() always fails, for exercising the save-error path. */
+    private fun savingFailsRepo() = object : TestBeanPurchaseRepository() {
+        override fun <S : BeanPurchase> save(entity: S): S = throw IllegalStateException("DB error")
+    }
+
+    private fun makeView(repo: TestBeanPurchaseRepository): MainView {
+        return testMainView(repo)
+    }
 
     private fun fillAddForm(view: MainView, name: String = "New Bean") {
         view.addFormContent.nameField.value = name
@@ -69,14 +75,14 @@ class NotificationTest {
     fun `successful add save shows Bean saved notification`() {
         val repo = object : TestBeanPurchaseRepository() {}
         val view = makeView(repo)
-        view.navigateTo(2)
+        view.navigateTo(AppTab.ADD)
         fillAddForm(view)
 
         view.addFormContent.saveButton.click()
 
         assertTrue(
-            NotificationHelper._shown.any { (text, isError) -> text.contains("Bean saved") && !isError },
-            "Expected 'Bean saved' success notification, got: ${NotificationHelper._shown}"
+            RecordedNotifications.shown.any { (text, isError) -> text.contains("Bean saved") && !isError },
+            "Expected 'Bean saved' success notification, got: ${RecordedNotifications.shown}"
         )
     }
 
@@ -92,8 +98,8 @@ class NotificationTest {
         view.purchaseForm.saveButton.click()
 
         assertTrue(
-            NotificationHelper._shown.any { (text, isError) -> text.contains("Bean saved") && !isError },
-            "Expected 'Bean saved' success notification, got: ${NotificationHelper._shown}"
+            RecordedNotifications.shown.any { (text, isError) -> text.contains("Bean saved") && !isError },
+            "Expected 'Bean saved' success notification, got: ${RecordedNotifications.shown}"
         )
     }
 
@@ -108,39 +114,47 @@ class NotificationTest {
         _get<Button> { id = "confirm-delete-btn" }.click()
 
         assertTrue(
-            NotificationHelper._shown.any { (text, isError) -> text.contains("Bean deleted") && !isError },
-            "Expected 'Bean deleted' success notification, got: ${NotificationHelper._shown}"
+            RecordedNotifications.shown.any { (text, isError) -> text.contains("Bean deleted") && !isError },
+            "Expected 'Bean deleted' success notification, got: ${RecordedNotifications.shown}"
         )
+    }
+
+    // Undo: clicking "Undo" on the delete toast re-saves the deleted purchase
+    @Test
+    fun `undo after delete restores the purchase`() {
+        val p = purchase("Undo Me")
+        val repo = object : TestBeanPurchaseRepository() { init { store.add(p) } }
+        val view = makeView(repo)
+
+        view.showDeleteConfirmation(p)
+        _get<Button> { id = "confirm-delete-btn" }.click()
+        assertTrue(repo.store.none { it.id == p.id }, "Purchase should be deleted before undo")
+
+        _get<Button> { text = "Undo" }.click()
+
+        assertTrue(repo.store.any { it.id == p.id }, "Undo should restore the deleted purchase")
     }
 
     // AC-3: save exception shows error notification
     @Test
     fun `save exception shows error notification`() {
-        val repo = object : TestBeanPurchaseRepository() {}
-        val failPort = object : BeanPurchaseSavePort {
-            override fun <S : BeanPurchase> save(entity: S): S = throw RuntimeException("DB error")
-        }
-        val view = makeView(repo, failPort)
-        view.navigateTo(2)
+        val view = makeView(savingFailsRepo())
+        view.navigateTo(AppTab.ADD)
         fillAddForm(view, "Fail Bean")
 
         view.addFormContent.saveButton.click()
 
         assertTrue(
-            NotificationHelper._shown.any { (text, isError) -> text.contains("Failed to save") && isError },
-            "Expected save-error notification, got: ${NotificationHelper._shown}"
+            RecordedNotifications.shown.any { (text, isError) -> text.contains("Failed to save") && isError },
+            "Expected save-error notification, got: ${RecordedNotifications.shown}"
         )
     }
 
     // AC-4: save exception does NOT navigate away (Add form stays visible)
     @Test
     fun `save exception keeps user on current page`() {
-        val repo = object : TestBeanPurchaseRepository() {}
-        val failPort = object : BeanPurchaseSavePort {
-            override fun <S : BeanPurchase> save(entity: S): S = throw RuntimeException("DB error")
-        }
-        val view = makeView(repo, failPort)
-        view.navigateTo(2)
+        val view = makeView(savingFailsRepo())
+        view.navigateTo(AppTab.ADD)
         fillAddForm(view, "Fail Bean")
 
         view.addFormContent.saveButton.click()
@@ -154,7 +168,7 @@ class NotificationTest {
         val p = purchase("To Delete Fail")
         val failRepo = object : TestBeanPurchaseRepository() {
             init { store.add(p) }
-            override fun deleteById(id: UUID) = throw RuntimeException("Delete failed")
+            override fun deleteById(id: UUID) = throw IllegalStateException("Delete failed")
         }
         val view = makeView(failRepo)
 
@@ -162,8 +176,8 @@ class NotificationTest {
         _get<Button> { id = "confirm-delete-btn" }.click()
 
         assertTrue(
-            NotificationHelper._shown.any { (text, isError) -> text.contains("Failed to delete") && isError },
-            "Expected delete-error notification, got: ${NotificationHelper._shown}"
+            RecordedNotifications.shown.any { (text, isError) -> text.contains("Failed to delete") && isError },
+            "Expected delete-error notification, got: ${RecordedNotifications.shown}"
         )
     }
 
@@ -178,8 +192,8 @@ class NotificationTest {
         view.detailView._get<Button> { text = "Mark as Opened Today" }.click()
 
         assertTrue(
-            NotificationHelper._shown.isEmpty(),
-            "State transition should not trigger any notification, got: ${NotificationHelper._shown}"
+            RecordedNotifications.shown.isEmpty(),
+            "State transition should not trigger any notification, got: ${RecordedNotifications.shown}"
         )
     }
 }

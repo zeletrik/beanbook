@@ -7,6 +7,7 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 
+/** Smoke test verifying that Karibu Testing initialises correctly against Vaadin 25. */
 class KaribuCompatibilityTest {
 
     @BeforeEach

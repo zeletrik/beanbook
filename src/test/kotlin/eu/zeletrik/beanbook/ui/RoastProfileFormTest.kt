@@ -8,9 +8,10 @@ import eu.zeletrik.beanbook.TestBeanPurchaseRepository
 import eu.zeletrik.beanbook.analytics.AnalyticsService
 import eu.zeletrik.beanbook.beans.BeanPurchase
 import eu.zeletrik.beanbook.beans.BeanPurchaseService
-import eu.zeletrik.beanbook.beans.ExportService
+import eu.zeletrik.beanbook.backup.ExportService
 import eu.zeletrik.beanbook.beans.Process
 import eu.zeletrik.beanbook.beans.RoastLevel
+import eu.zeletrik.beanbook.beans.BrewTarget
 import eu.zeletrik.beanbook.beans.RoastProfile
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -23,6 +24,7 @@ import java.math.BigDecimal
 import java.time.LocalDate
 import java.util.UUID
 
+/** Verifies roast-profile selection, its pre-population, and the resulting [BrewTarget] (Used As) behaviour across the add, edit, and detail views. */
 class RoastProfileFormTest {
 
     @BeforeEach fun setup() = MockVaadin.setup()
@@ -31,20 +33,17 @@ class RoastProfileFormTest {
     private fun purchase(
         name: String = "Test Bean",
         roastProfile: RoastProfile = RoastProfile.FILTER,
-        usedAs: RoastProfile? = null,
+        usedAs: BrewTarget? = null,
     ) = BeanPurchase(
         id = UUID.randomUUID(), name = name, roaster = "R", origin = "Ethiopia",
-        pricePerUnit = BigDecimal("15.00"), weightGrams = 250,
+        price = BigDecimal("15.00"), weightGrams = 250,
         purchaseDate = LocalDate.of(2025, 1, 1), roastDate = LocalDate.of(2024, 12, 28),
         roastLevel = RoastLevel.MEDIUM, process = Process.WASHED,
         roastProfile = roastProfile, usedAs = usedAs,
     )
 
-    private fun makeView(items: List<BeanPurchase> = emptyList()): MainView {
-        val repo = object : TestBeanPurchaseRepository() { init { store.addAll(items) } }
-        val service = BeanPurchaseService(repo, repo)
-        return MainView(service, AnalyticsService(), ExportService(service, object : eu.zeletrik.beanbook.wishlist.WishlistService(org.springframework.jdbc.core.JdbcTemplate()) { override fun findAll() = emptyList<eu.zeletrik.beanbook.wishlist.WishlistItem>() }, jacksonObjectMapper()), eu.zeletrik.beanbook.TestImportService(), eu.zeletrik.beanbook.TestPreferencesService(), eu.zeletrik.beanbook.TestWishlistService())
-    }
+    private fun makeView(items: List<BeanPurchase> = emptyList()): MainView =
+        testMainView(testRepository(items))
 
     private fun fillRequired(view: MainView, name: String = "Bean") {
         view.addFormContent.nameField.value = name
@@ -62,7 +61,7 @@ class RoastProfileFormTest {
     @Test
     fun `roastProfileField is present in the add form`() {
         val view = makeView()
-        view.navigateTo(2)
+        view.navigateTo(AppTab.ADD)
         assertTrue(view.addFormContent.roastProfileField.isVisible, "roastProfileField must be visible")
     }
 
@@ -70,9 +69,8 @@ class RoastProfileFormTest {
     @Test
     fun `form does not save when roastProfileField has no value`() {
         val repo = object : TestBeanPurchaseRepository() {}
-        val service = BeanPurchaseService(repo, repo)
-        val view = MainView(service, AnalyticsService(), ExportService(service, object : eu.zeletrik.beanbook.wishlist.WishlistService(org.springframework.jdbc.core.JdbcTemplate()) { override fun findAll() = emptyList<eu.zeletrik.beanbook.wishlist.WishlistItem>() }, jacksonObjectMapper()), eu.zeletrik.beanbook.TestImportService(), eu.zeletrik.beanbook.TestPreferencesService(), eu.zeletrik.beanbook.TestWishlistService())
-        view.navigateTo(2)
+        val view = testMainView(repo)
+        view.navigateTo(AppTab.ADD)
         fillRequired(view)
         view.addFormContent.roastProfileField.value = null
         view.addFormContent.saveButton.click()
@@ -83,7 +81,7 @@ class RoastProfileFormTest {
     @Test
     fun `OMNI is pre-selected when new bean form opens`() {
         val view = makeView()
-        view.navigateTo(2)
+        view.navigateTo(AppTab.ADD)
         assertEquals(RoastProfile.OMNI, view.addFormContent.roastProfileField.value)
     }
 
@@ -100,10 +98,9 @@ class RoastProfileFormTest {
     @Test
     fun `saving edit from OMNI to ESPRESSO clears usedAs`() {
         val repo = object : TestBeanPurchaseRepository() {}
-        val service = BeanPurchaseService(repo, repo)
-        val view = MainView(service, AnalyticsService(), ExportService(service, object : eu.zeletrik.beanbook.wishlist.WishlistService(org.springframework.jdbc.core.JdbcTemplate()) { override fun findAll() = emptyList<eu.zeletrik.beanbook.wishlist.WishlistItem>() }, jacksonObjectMapper()), eu.zeletrik.beanbook.TestImportService(), eu.zeletrik.beanbook.TestPreferencesService(), eu.zeletrik.beanbook.TestWishlistService())
+        val view = testMainView(repo)
 
-        val omniBean = purchase(roastProfile = RoastProfile.OMNI, usedAs = RoastProfile.FILTER)
+        val omniBean = purchase(roastProfile = RoastProfile.OMNI, usedAs = BrewTarget.FILTER)
         repo.save(omniBean)
         view.refreshView()
 
@@ -120,8 +117,7 @@ class RoastProfileFormTest {
     @Test
     fun `saving edit from ESPRESSO to OMNI does not set usedAs`() {
         val repo = object : TestBeanPurchaseRepository() {}
-        val service = BeanPurchaseService(repo, repo)
-        val view = MainView(service, AnalyticsService(), ExportService(service, object : eu.zeletrik.beanbook.wishlist.WishlistService(org.springframework.jdbc.core.JdbcTemplate()) { override fun findAll() = emptyList<eu.zeletrik.beanbook.wishlist.WishlistItem>() }, jacksonObjectMapper()), eu.zeletrik.beanbook.TestImportService(), eu.zeletrik.beanbook.TestPreferencesService(), eu.zeletrik.beanbook.TestWishlistService())
+        val view = testMainView(repo)
 
         val espressoBean = purchase(roastProfile = RoastProfile.ESPRESSO, usedAs = null)
         repo.save(espressoBean)
@@ -140,10 +136,9 @@ class RoastProfileFormTest {
     @Test
     fun `duplicating OMNI bean with usedAs ESPRESSO produces new record with same profile and usedAs`() {
         val repo = object : TestBeanPurchaseRepository() {}
-        val service = BeanPurchaseService(repo, repo)
-        val view = MainView(service, AnalyticsService(), ExportService(service, object : eu.zeletrik.beanbook.wishlist.WishlistService(org.springframework.jdbc.core.JdbcTemplate()) { override fun findAll() = emptyList<eu.zeletrik.beanbook.wishlist.WishlistItem>() }, jacksonObjectMapper()), eu.zeletrik.beanbook.TestImportService(), eu.zeletrik.beanbook.TestPreferencesService(), eu.zeletrik.beanbook.TestWishlistService())
+        val view = testMainView(repo)
 
-        val omniBean = purchase(name = "Source", roastProfile = RoastProfile.OMNI, usedAs = RoastProfile.ESPRESSO)
+        val omniBean = purchase(name = "Source", roastProfile = RoastProfile.OMNI, usedAs = BrewTarget.ESPRESSO)
         repo.save(omniBean)
         view.refreshView()
 
@@ -165,7 +160,7 @@ class RoastProfileFormTest {
 
         val duplicate = repo.store.first { it.id != omniBean.id }
         assertEquals(RoastProfile.OMNI, duplicate.roastProfile, "Duplicate must carry over roastProfile")
-        assertEquals(RoastProfile.ESPRESSO, duplicate.usedAs, "Duplicate must carry over usedAs")
+        assertEquals(BrewTarget.ESPRESSO, duplicate.usedAs, "Duplicate must carry over usedAs")
     }
 
     // AC-13/AC-14: (d) Used As selector visible for OMNI, absent for ESPRESSO/FILTER
@@ -191,8 +186,7 @@ class RoastProfileFormTest {
     @Test
     fun `changing Used As to ESPRESSO in detail view persists usedAs`() {
         val repo = object : TestBeanPurchaseRepository() {}
-        val service = BeanPurchaseService(repo, repo)
-        val view = MainView(service, AnalyticsService(), ExportService(service, object : eu.zeletrik.beanbook.wishlist.WishlistService(org.springframework.jdbc.core.JdbcTemplate()) { override fun findAll() = emptyList<eu.zeletrik.beanbook.wishlist.WishlistItem>() }, jacksonObjectMapper()), eu.zeletrik.beanbook.TestImportService(), eu.zeletrik.beanbook.TestPreferencesService(), eu.zeletrik.beanbook.TestWishlistService())
+        val view = testMainView(repo)
 
         val omniBean = purchase(roastProfile = RoastProfile.OMNI, usedAs = null)
         repo.save(omniBean)
@@ -201,28 +195,27 @@ class RoastProfileFormTest {
 
         @Suppress("UNCHECKED_CAST")
         val usedAsSelect = view.detailView._get<com.vaadin.flow.component.select.Select<*>> { id = "used-as-select" }
-            as com.vaadin.flow.component.select.Select<RoastProfile?>
-        usedAsSelect.value = RoastProfile.ESPRESSO
+            as com.vaadin.flow.component.select.Select<BrewTarget?>
+        usedAsSelect.value = BrewTarget.ESPRESSO
 
         val updated = repo.store.first { it.id == omniBean.id }
-        assertEquals(RoastProfile.ESPRESSO, updated.usedAs, "usedAs must be ESPRESSO after selection")
+        assertEquals(BrewTarget.ESPRESSO, updated.usedAs, "usedAs must be ESPRESSO after selection")
     }
 
     // AC-16: (h) clearing Used As persists null
     @Test
     fun `clearing Used As in detail view persists null usedAs`() {
         val repo = object : TestBeanPurchaseRepository() {}
-        val service = BeanPurchaseService(repo, repo)
-        val view = MainView(service, AnalyticsService(), ExportService(service, object : eu.zeletrik.beanbook.wishlist.WishlistService(org.springframework.jdbc.core.JdbcTemplate()) { override fun findAll() = emptyList<eu.zeletrik.beanbook.wishlist.WishlistItem>() }, jacksonObjectMapper()), eu.zeletrik.beanbook.TestImportService(), eu.zeletrik.beanbook.TestPreferencesService(), eu.zeletrik.beanbook.TestWishlistService())
+        val view = testMainView(repo)
 
-        val omniBean = purchase(roastProfile = RoastProfile.OMNI, usedAs = RoastProfile.FILTER)
+        val omniBean = purchase(roastProfile = RoastProfile.OMNI, usedAs = BrewTarget.FILTER)
         repo.save(omniBean)
         view.refreshView()
         view.detailView.show(omniBean)
 
         @Suppress("UNCHECKED_CAST")
         val usedAsSelect = view.detailView._get<com.vaadin.flow.component.select.Select<*>> { id = "used-as-select" }
-            as com.vaadin.flow.component.select.Select<RoastProfile?>
+            as com.vaadin.flow.component.select.Select<BrewTarget?>
         usedAsSelect.value = null
 
         val updated = repo.store.first { it.id == omniBean.id }

@@ -5,6 +5,7 @@ import eu.zeletrik.beanbook.beans.BeanPurchase
 import eu.zeletrik.beanbook.beans.Process
 import eu.zeletrik.beanbook.beans.RoastLevel
 
+/** Field by which a list of [BeanPurchase] entries can be sorted, paired with its human-readable [label]. */
 enum class SortField(val label: String) {
     PURCHASE_DATE("Date"),
     NAME("Name"),
@@ -13,6 +14,7 @@ enum class SortField(val label: String) {
     RATING("Rating"),
 }
 
+/** Immutable snapshot of the active search, filter and sort criteria applied to the purchase list. */
 data class FilterState(
     val query: String = "",
     val roastLevels: Set<RoastLevel> = emptySet(),
@@ -36,11 +38,12 @@ data class FilterState(
 private fun SortField.toComparator(): Comparator<BeanPurchase> = when (this) {
     SortField.NAME          -> compareBy { it.name }
     SortField.ROASTER       -> compareBy { it.roaster }
-    SortField.PRICE         -> compareBy { it.pricePerUnit }
+    SortField.PRICE         -> compareBy { it.price }
     SortField.PURCHASE_DATE -> compareBy { it.purchaseDate }
     SortField.RATING        -> compareBy { it.rating ?: 0 }
 }
 
+/** Returns this list narrowed by every active criterion in [state] and ordered by its [FilterState.sortBy] direction. */
 fun List<BeanPurchase>.applyFilter(state: FilterState): List<BeanPurchase> {
     val q = state.query.trim().lowercase()
     val comparator = state.sortBy.toComparator().let { if (state.ascending) it else it.reversed() }

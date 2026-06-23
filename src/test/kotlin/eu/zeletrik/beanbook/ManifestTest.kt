@@ -10,6 +10,7 @@ import org.springframework.boot.test.web.server.LocalServerPort
 import org.springframework.http.HttpStatus
 import org.springframework.web.client.RestTemplate
 
+/** Verifies that the PWA manifest and app icons are served with the expected status, content types, and metadata. */
 @SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT)
 class ManifestTest {
 
