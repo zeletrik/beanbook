@@ -11,8 +11,10 @@ import com.vaadin.flow.component.icon.Icon
 import com.vaadin.flow.component.icon.VaadinIcon
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout
 import com.vaadin.flow.component.orderedlayout.VerticalLayout
+import com.vaadin.flow.component.select.Select
 import eu.zeletrik.beanbook.beans.BagState
 import eu.zeletrik.beanbook.beans.BeanPurchase
+import eu.zeletrik.beanbook.beans.RoastProfile
 import java.time.LocalDate
 
 class PurchaseDetailView(
@@ -21,6 +23,7 @@ class PurchaseDetailView(
     private val onDelete: (BeanPurchase) -> Unit,
     private val onSave: (BeanPurchase) -> Unit,
     private val onDuplicate: (BeanPurchase) -> Unit = {},
+    private val getCurrency: () -> String = { "€" },
 ) : VerticalLayout() {
 
     private var current: BeanPurchase? = null
@@ -46,6 +49,10 @@ class PurchaseDetailView(
         scroll.add(buildDetailsSection(purchase))
         scroll.add(Hr())
         scroll.add(buildStateSection(purchase))
+        if (purchase.roastProfile == RoastProfile.OMNI) {
+            scroll.add(Hr())
+            scroll.add(buildBrewMethodSection(purchase))
+        }
         scroll.add(Hr())
         scroll.add(buildActionsRow(purchase))
     }
@@ -110,12 +117,14 @@ class PurchaseDetailView(
         isPadding = true; isSpacing = false; style["gap"] = "0.4rem"
         add(detailRow("Roast level", purchase.roastLevel.name.lowercase().replaceFirstChar { it.uppercase() }))
         add(detailRow("Process", purchase.process.name.lowercase().replaceFirstChar { it.uppercase() }))
-        add(detailRow("Price", purchase.pricePerUnit.formatPrice()))
+        add(detailRow("Roast profile", purchase.roastProfile.name.lowercase().replaceFirstChar { it.uppercase() }))
+        add(detailRow("Price", purchase.pricePerUnit.formatPrice(getCurrency())))
         add(detailRow("Weight", "${purchase.weightGrams} g"))
         add(detailRow("Purchased", purchase.purchaseDate.toString()))
         add(detailRow("Roasted", purchase.roastDate.toString()))
         if (purchase.openedDate != null) add(detailRow("Opened", purchase.openedDate.toString()))
         if (purchase.finishedDate != null) add(detailRow("Finished", purchase.finishedDate.toString()))
+        if (purchase.tags.isNotEmpty()) add(detailRow("Tags", purchase.tags.joinToString(", ")))
         if (!purchase.notes.isNullOrBlank()) add(detailRow("Notes", purchase.notes))
         if (!purchase.grindSettings.isNullOrBlank()) add(detailRow("Grind", purchase.grindSettings!!))
     }
@@ -148,6 +157,24 @@ class PurchaseDetailView(
                 }.apply { addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL) })
             }
         }
+    }
+
+    private fun buildBrewMethodSection(purchase: BeanPurchase): VerticalLayout = VerticalLayout().apply {
+        isPadding = true; isSpacing = true
+        add(Span("Brew method").apply {
+            style["font-weight"] = "600"; style["font-size"] = "var(--lumo-font-size-m)"
+        })
+        val usedAsSelect = Select<RoastProfile?>().apply {
+            setId("used-as-select")
+            label = "Used as"
+            setItemLabelGenerator { rp -> rp?.name?.lowercase()?.replaceFirstChar { c -> c.uppercase() } ?: "Not set" }
+            setItems(null, RoastProfile.ESPRESSO, RoastProfile.FILTER)
+            value = purchase.usedAs
+            addValueChangeListener { event ->
+                saveAndRefresh(purchase.copy(usedAs = event.value))
+            }
+        }
+        add(usedAsSelect)
     }
 
     private fun buildActionsRow(purchase: BeanPurchase): HorizontalLayout =

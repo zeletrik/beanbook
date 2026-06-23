@@ -43,6 +43,7 @@ class BeanPurchaseRestartTest {
             roastDate = LocalDate.of(2025, 4, 25),
             roastLevel = RoastLevel.MEDIUM,
             process = Process.NATURAL,
+            roastProfile = eu.zeletrik.beanbook.beans.RoastProfile.FILTER,
         )
 
         @DynamicPropertySource

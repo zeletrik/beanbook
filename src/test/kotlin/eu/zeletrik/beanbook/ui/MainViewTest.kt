@@ -4,6 +4,8 @@ import com.github.mvysny.kaributesting.v10.MockVaadin
 import eu.zeletrik.beanbook.analytics.AnalyticsService
 import eu.zeletrik.beanbook.beans.BeanPurchase
 import eu.zeletrik.beanbook.beans.BeanPurchaseService
+import eu.zeletrik.beanbook.beans.ExportService
+import tools.jackson.module.kotlin.jacksonObjectMapper
 import eu.zeletrik.beanbook.beans.Process
 import eu.zeletrik.beanbook.beans.RoastLevel
 import eu.zeletrik.beanbook.TestBeanPurchaseRepository
@@ -28,13 +30,14 @@ class MainViewTest {
         pricePerUnit = BigDecimal("15.00"), weightGrams = 250,
         purchaseDate = LocalDate.of(2025, 1, 1), roastDate = LocalDate.of(2024, 12, 28),
         roastLevel = RoastLevel.MEDIUM, process = Process.WASHED, imageData = null,
+        roastProfile = eu.zeletrik.beanbook.beans.RoastProfile.FILTER,
     )
 
     private fun makeView(items: List<BeanPurchase>): MainView {
         val repo = object : TestBeanPurchaseRepository() {
             init { store.addAll(items) }
         }
-        return MainView(BeanPurchaseService(repo, repo), AnalyticsService())
+        return MainView(BeanPurchaseService(repo, repo), AnalyticsService(), ExportService(BeanPurchaseService(repo, repo), object : eu.zeletrik.beanbook.wishlist.WishlistService(org.springframework.jdbc.core.JdbcTemplate()) { override fun findAll() = emptyList<eu.zeletrik.beanbook.wishlist.WishlistItem>() }, jacksonObjectMapper()), eu.zeletrik.beanbook.TestImportService(), eu.zeletrik.beanbook.TestPreferencesService(), eu.zeletrik.beanbook.TestWishlistService())
     }
 
     // AC-1: cards show all entries

@@ -2,6 +2,7 @@ package eu.zeletrik.beanbook.ui
 
 import com.vaadin.flow.component.button.Button
 import com.vaadin.flow.component.button.ButtonVariant
+import com.vaadin.flow.component.combobox.MultiSelectComboBox
 import com.vaadin.flow.component.datepicker.DatePicker
 import com.vaadin.flow.component.formlayout.FormLayout
 import com.vaadin.flow.component.html.H4
@@ -20,6 +21,7 @@ import com.vaadin.flow.data.binder.Binder
 import eu.zeletrik.beanbook.beans.BeanPurchase
 import eu.zeletrik.beanbook.beans.Process
 import eu.zeletrik.beanbook.beans.RoastLevel
+import eu.zeletrik.beanbook.beans.RoastProfile
 import java.io.ByteArrayInputStream
 import java.math.BigDecimal
 import java.util.UUID
@@ -28,9 +30,13 @@ private const val MAX_IMAGE_BYTES = 5_242_880
 private val ALLOWED_TYPES = setOf("image/jpeg", "image/png", "image/webp")
 
 
+private const val MAX_TAG_LENGTH = 20
+private const val MAX_TAG_COUNT = 10
+
 class PurchaseFormContent(
     private val onSave: (bean: PurchaseFormBean, existingId: UUID?) -> Unit,
     private val onCancel: (() -> Unit)? = null,
+    private val getAllTags: () -> Set<String> = { emptySet() },
 ) : VerticalLayout() {
 
     internal val nameField = TextField("Name").also { it.setId("field-name") }
@@ -50,7 +56,17 @@ class PurchaseFormContent(
         it.label = "Process"
         it.setItems(*Process.entries.toTypedArray())
     }
+    internal val roastProfileField = Select<RoastProfile>().also {
+        it.setId("field-roast-profile")
+        it.label = "Roast profile"
+        it.setItems(*RoastProfile.entries.toTypedArray())
+        it.setItemLabelGenerator { rp -> rp.name.lowercase().replaceFirstChar { c -> c.uppercase() } }
+    }
     internal val notesField = TextArea("Notes").also { it.setId("field-notes") }
+    internal val tagsField = MultiSelectComboBox<String>("Tags").also {
+        it.setId("field-tags")
+        it.setAllowCustomValue(true)
+    }
     internal val grindSettingsField = TextField("Grind settings").also { it.setId("field-grind") }
 
     // Rating: 1–5, null = not rated
@@ -123,6 +139,25 @@ class PurchaseFormContent(
         // No `capture` attribute — iOS shows its native picker ("Take Photo", "Photo Library", "Files")
         // giving the user both camera and gallery. Setting capture="environment" bypasses gallery entirely.
 
+        tagsField.addCustomValueSetListener { event ->
+            val raw = event.detail?.trim()?.lowercase() ?: return@addCustomValueSetListener
+            when {
+                raw.isBlank() -> return@addCustomValueSetListener
+                raw.length > MAX_TAG_LENGTH -> NotificationHelper.error("Tag must be $MAX_TAG_LENGTH characters or fewer")
+                tagsField.value.size >= MAX_TAG_COUNT -> NotificationHelper.error("Maximum $MAX_TAG_COUNT tags allowed")
+                else -> {
+                    val updated = tagsField.value.toMutableSet().also { it.add(raw) }
+                    tagsField.value = updated
+                }
+            }
+        }
+        tagsField.addValueChangeListener { event ->
+            if ((event.value?.size ?: 0) > MAX_TAG_COUNT) {
+                tagsField.value = event.oldValue
+                NotificationHelper.error("Maximum $MAX_TAG_COUNT tags allowed")
+            }
+        }
+
         configureBinder()
 
         val coreForm = FormLayout(
@@ -130,7 +165,8 @@ class PurchaseFormContent(
             priceField, weightField,
             purchaseDateField, roastDateField,
             roastLevelField, processField,
-            notesField, grindSettingsField, ratingField,
+            roastProfileField,
+            notesField, tagsField, grindSettingsField, ratingField,
         )
 
         val stateForm = VerticalLayout().apply {
@@ -188,8 +224,13 @@ class PurchaseFormContent(
         binder.forField(processField)
             .asRequired("Required")
             .bind({ it.process }, { b, v -> b.process = v })
+        binder.forField(roastProfileField)
+            .asRequired("Required")
+            .bind({ it.roastProfile }, { b, v -> b.roastProfile = v })
         binder.forField(notesField)
             .bind({ it.notes }, { b, v -> b.notes = v })
+        binder.forField(tagsField)
+            .bind({ it.tags.toSet() }, { b, v -> b.tags = v?.toList() ?: emptyList() })
         binder.forField(grindSettingsField)
             .bind({ it.grindSettings }, { b, v -> b.grindSettings = v })
         binder.forField(ratingField)
@@ -204,6 +245,7 @@ class PurchaseFormContent(
         editingId = null
         pendingImageData = null
         binder.bean = PurchaseFormBean()
+        tagsField.setItems(getAllTags())
         clearUploadState()
         currentImageDisplay.isVisible = false
         existingImageLabel.isVisible = false
@@ -230,7 +272,11 @@ class PurchaseFormContent(
             rating = purchase.rating
             openedDate = purchase.openedDate
             finishedDate = purchase.finishedDate
+            roastProfile = purchase.roastProfile
+            usedAs = purchase.usedAs
+            tags = purchase.tags
         }
+        tagsField.setItems(getAllTags())
         if (purchase.imageData != null) {
             currentImageDisplay.setSrc(
                 com.vaadin.flow.server.streams.InputStreamDownloadHandler { _ ->
@@ -269,6 +315,9 @@ class PurchaseFormContent(
         grindSettingsField.value = source.grindSettings ?: ""
         // Image bytes stored in pendingImageData (not via Upload component)
         pendingImageData = source.imageData
+        roastProfileField.value = source.roastProfile
+        binder.bean.usedAs = source.usedAs
+        tagsField.value = source.tags.toSet()
         // Transaction fields (price, weight, dates, rating) remain empty from openForCreate()
     }
 }

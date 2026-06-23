@@ -51,6 +51,7 @@ class LiquibaseMigrationTest {
             roastDate = LocalDate.of(2025, 2, 25),
             roastLevel = RoastLevel.LIGHT,
             process = Process.WASHED,
+            roastProfile = eu.zeletrik.beanbook.beans.RoastProfile.FILTER,
         )
 
         @DynamicPropertySource
@@ -103,6 +104,6 @@ class LiquibaseMigrationTest {
             "SELECT COUNT(*) FROM DATABASECHANGELOG",
             Int::class.java,
         )
-        assertEquals(1, migrationCount, "V1 migration should appear exactly once in DATABASECHANGELOG")
+        assertEquals(6, migrationCount, "V1–V6 migrations should each appear exactly once in DATABASECHANGELOG")
     }
 }

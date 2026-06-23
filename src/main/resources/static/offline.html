@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Bean Book — Offline</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100dvh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: #FDF6EC;
+      color: #3d2b1f;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      padding: 2rem;
+      padding-bottom: calc(2rem + env(safe-area-inset-bottom));
+    }
+
+    .card {
+      text-align: center;
+      max-width: 320px;
+      width: 100%;
+    }
+
+    .icon {
+      width: 96px;
+      height: 96px;
+      margin: 0 auto 1.5rem;
+      border-radius: 22px;
+      overflow: hidden;
+    }
+
+    .icon img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #6B4226;
+      margin-bottom: 0.5rem;
+    }
+
+    .status {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 0.75rem;
+      color: #5a3e2b;
+    }
+
+    p {
+      font-size: 0.9rem;
+      line-height: 1.5;
+      color: #7a5c4a;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">
+      <img src="/icons/icon-192.svg" alt="Bean Book icon">
+    </div>
+    <h1>Bean Book</h1>
+    <p class="status">You're offline</p>
+    <p>Your Bean Book is unavailable right now. Please check your connection and try again.</p>
+  </div>
+</body>
+</html>

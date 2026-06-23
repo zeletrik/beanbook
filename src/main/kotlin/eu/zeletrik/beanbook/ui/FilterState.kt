@@ -19,6 +19,7 @@ data class FilterState(
     val processes: Set<Process> = emptySet(),
     val bagStates: Set<BagState> = emptySet(),
     val minRating: Int? = null,
+    val tags: Set<String> = emptySet(),
     val sortBy: SortField = SortField.PURCHASE_DATE,
     val ascending: Boolean = false,
 ) {
@@ -26,7 +27,8 @@ data class FilterState(
         get() = (if (roastLevels.isNotEmpty()) 1 else 0) +
                 (if (processes.isNotEmpty()) 1 else 0) +
                 (if (bagStates.isNotEmpty()) 1 else 0) +
-                (if (minRating != null) 1 else 0)
+                (if (minRating != null) 1 else 0) +
+                (if (tags.isNotEmpty()) 1 else 0)
 
     val isDefault: Boolean get() = activeFilterCount == 0 && sortBy == SortField.PURCHASE_DATE && !ascending
 }
@@ -47,11 +49,13 @@ fun List<BeanPurchase>.applyFilter(state: FilterState): List<BeanPurchase> {
             q.isEmpty() ||
                 p.name.lowercase().contains(q) ||
                 p.roaster.lowercase().contains(q) ||
-                p.origin.lowercase().contains(q)
+                p.origin.lowercase().contains(q) ||
+                p.tags.any { tag -> tag.contains(q, ignoreCase = true) }
         }
         .filter { p -> state.roastLevels.isEmpty() || p.roastLevel in state.roastLevels }
         .filter { p -> state.processes.isEmpty() || p.process in state.processes }
         .filter { p -> state.bagStates.isEmpty() || p.bagState in state.bagStates }
         .filter { p -> state.minRating == null || (p.rating != null && p.rating >= state.minRating) }
+        .filter { p -> state.tags.isEmpty() || p.tags.any { it in state.tags } }
         .sortedWith(comparator)
 }

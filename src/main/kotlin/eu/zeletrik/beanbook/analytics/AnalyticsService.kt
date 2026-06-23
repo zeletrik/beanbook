@@ -1,6 +1,7 @@
 package eu.zeletrik.beanbook.analytics
 
 import eu.zeletrik.beanbook.beans.BeanPurchase
+import eu.zeletrik.beanbook.beans.RoastProfile
 import org.springframework.stereotype.Service
 import java.math.BigDecimal
 import java.math.RoundingMode
@@ -75,5 +76,30 @@ class AnalyticsService {
         if (durations.isEmpty()) return null
         return durations.fold(BigDecimal.ZERO) { acc, d -> acc + d }
             .divide(BigDecimal(durations.size), 1, RoundingMode.HALF_UP)
+    }
+
+    fun spendByBrewMethod(purchases: List<BeanPurchase>): Map<BrewMethod, BigDecimal> {
+        val base = BrewMethod.entries.associateWith { BigDecimal.ZERO }.toMutableMap()
+        purchases.forEach { p -> base[p.effectiveBrewMethod()] = (base[p.effectiveBrewMethod()] ?: BigDecimal.ZERO) + p.pricePerUnit }
+        return base
+    }
+
+    fun countByBrewMethod(purchases: List<BeanPurchase>): Map<BrewMethod, Int> {
+        val base = BrewMethod.entries.associateWith { 0 }.toMutableMap()
+        purchases.forEach { p -> base[p.effectiveBrewMethod()] = (base[p.effectiveBrewMethod()] ?: 0) + 1 }
+        return base
+    }
+
+    fun paceByBrewMethod(purchases: List<BeanPurchase>): Map<BrewMethod, BigDecimal?> {
+        return mapOf(
+            BrewMethod.ESPRESSO to averagePaceDays(purchases.filter { it.effectiveBrewMethod() == BrewMethod.ESPRESSO }),
+            BrewMethod.FILTER   to averagePaceDays(purchases.filter { it.effectiveBrewMethod() == BrewMethod.FILTER }),
+        )
+    }
+
+    fun countByRoastProfile(purchases: List<BeanPurchase>): Map<RoastProfile, Int> {
+        val base = RoastProfile.entries.associateWith { 0 }.toMutableMap()
+        purchases.forEach { p -> base[p.roastProfile] = (base[p.roastProfile] ?: 0) + 1 }
+        return base
     }
 }

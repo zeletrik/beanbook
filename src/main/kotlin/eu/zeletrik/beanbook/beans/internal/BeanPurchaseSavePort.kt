@@ -18,8 +18,8 @@ class JdbcBeanPurchaseSavePort(private val jdbcTemplate: JdbcTemplate) : BeanPur
                 id, name, roaster, origin, price_per_unit, weight_grams,
                 purchase_date, roast_date, roast_level, process,
                 notes, grind_settings, image_data, rating,
-                opened_date, finished_date
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                opened_date, finished_date, roast_profile, used_as, tags
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """.trimIndent(),
             entity.id.toString(),
             entity.name,
@@ -37,6 +37,9 @@ class JdbcBeanPurchaseSavePort(private val jdbcTemplate: JdbcTemplate) : BeanPur
             entity.rating,
             entity.openedDate?.toString(),
             entity.finishedDate?.toString(),
+            entity.roastProfile.name,
+            entity.usedAs?.name,
+            entity.tags.joinToString(",").takeIf { entity.tags.isNotEmpty() },
         )
         return entity
     }

@@ -5,6 +5,8 @@ import com.github.mvysny.kaributesting.v10._value
 import eu.zeletrik.beanbook.analytics.AnalyticsService
 import eu.zeletrik.beanbook.beans.BeanPurchase
 import eu.zeletrik.beanbook.beans.BeanPurchaseService
+import eu.zeletrik.beanbook.beans.ExportService
+import tools.jackson.module.kotlin.jacksonObjectMapper
 import eu.zeletrik.beanbook.beans.Process
 import eu.zeletrik.beanbook.beans.RoastLevel
 import eu.zeletrik.beanbook.TestBeanPurchaseRepository
@@ -30,8 +32,8 @@ class GrindSettingsTest {
     fun setup() {
         MockVaadin.setup()
         repo = GrindTestRepository()
-        view = MainView(BeanPurchaseService(repo, repo), AnalyticsService())
-        view.navigateTo(1)
+        view = MainView(BeanPurchaseService(repo, repo), AnalyticsService(), ExportService(BeanPurchaseService(repo, repo), object : eu.zeletrik.beanbook.wishlist.WishlistService(org.springframework.jdbc.core.JdbcTemplate()) { override fun findAll() = emptyList<eu.zeletrik.beanbook.wishlist.WishlistItem>() }, jacksonObjectMapper()), eu.zeletrik.beanbook.TestImportService(), eu.zeletrik.beanbook.TestPreferencesService(), eu.zeletrik.beanbook.TestWishlistService())
+        view.navigateTo(2)
         addForm = view.addFormContent
     }
 
@@ -94,6 +96,7 @@ class GrindSettingsTest {
             purchaseDate = LocalDate.of(2025, 1, 1), roastDate = LocalDate.of(2024, 12, 28),
             roastLevel = RoastLevel.MEDIUM, process = Process.WASHED,
             grindSettings = "20 on Niche",
+            roastProfile = eu.zeletrik.beanbook.beans.RoastProfile.FILTER,
         )
         // Open detail view for a purchase with grindSettings — rendered content contains "Grind"
         view.purchaseForm.openForEdit(purchase)
@@ -110,6 +113,7 @@ class GrindSettingsTest {
             purchaseDate = LocalDate.of(2025, 1, 1), roastDate = LocalDate.of(2024, 12, 28),
             roastLevel = RoastLevel.MEDIUM, process = Process.WASHED,
             grindSettings = null,
+            roastProfile = eu.zeletrik.beanbook.beans.RoastProfile.FILTER,
         )
         view.purchaseForm.openForEdit(purchase)
         assertEquals("", view.purchaseForm.grindSettingsField.value)

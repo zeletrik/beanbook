@@ -6,11 +6,13 @@ import java.util.UUID
 
 class PurchaseForm(
     onSave: (bean: PurchaseFormBean, existingId: UUID?) -> Unit,
+    getAllTags: () -> Set<String> = { emptySet() },
 ) : Dialog() {
 
     private val content = PurchaseFormContent(
         onSave = { bean, id -> onSave(bean, id); close() },
         onCancel = { close() },
+        getAllTags = getAllTags,
     )
 
     // Expose content fields for tests
@@ -23,6 +25,8 @@ class PurchaseForm(
     internal val roastDateField get() = content.roastDateField
     internal val roastLevelField get() = content.roastLevelField
     internal val processField get() = content.processField
+    internal val roastProfileField get() = content.roastProfileField
+    internal val tagsField get() = content.tagsField
     internal val notesField get() = content.notesField
     internal val grindSettingsField get() = content.grindSettingsField
     internal val saveButton get() = content.saveButton

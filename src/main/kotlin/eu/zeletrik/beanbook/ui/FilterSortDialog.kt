@@ -17,6 +17,7 @@ import eu.zeletrik.beanbook.beans.RoastLevel
 
 class FilterSortDialog(
     private val onApply: (FilterState) -> Unit,
+    private val getAvailableTags: () -> Set<String> = { emptySet() },
 ) : Dialog() {
 
     private val sortGroup = RadioButtonGroup<SortField>().apply {
@@ -55,6 +56,13 @@ class FilterSortDialog(
         value = 0
     }
 
+    private val tagsGroup = CheckboxGroup<String>().apply {
+        label = "Tags"
+    }
+    private val tagsSection = VerticalLayout().apply {
+        isPadding = false; isSpacing = false
+    }
+
     init {
         setHeaderTitle("Filter & Sort")
         isResizable = false
@@ -78,6 +86,9 @@ class FilterSortDialog(
             add(processGroup)
             add(stateGroup)
             add(ratingSelect)
+            tagsSection.add(H4("Tags").apply { style["margin"] = "0.5rem 0 0 0" })
+            tagsSection.add(tagsGroup)
+            add(tagsSection)
         }
 
         val resetBtn = Button("Reset") {
@@ -94,6 +105,9 @@ class FilterSortDialog(
     }
 
     fun openWith(state: FilterState) {
+        val available = getAvailableTags()
+        tagsGroup.setItems(*available.toTypedArray())
+        tagsSection.isVisible = available.isNotEmpty()
         loadState(state)
         open()
     }
@@ -106,6 +120,7 @@ class FilterSortDialog(
         processGroup.value = state.processes
         stateGroup.value = state.bagStates
         ratingSelect.value = state.minRating ?: 0
+        tagsGroup.value = state.tags
     }
 
     private fun currentState() = FilterState(
@@ -115,6 +130,7 @@ class FilterSortDialog(
         processes = processGroup.value ?: emptySet(),
         bagStates = stateGroup.value ?: emptySet(),
         minRating = ratingSelect.value.takeIf { it > 0 },
+        tags = tagsGroup.value ?: emptySet(),
     )
 
     private fun toggleDirection() {

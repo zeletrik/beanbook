@@ -3,6 +3,7 @@ package eu.zeletrik.beanbook.analytics
 import eu.zeletrik.beanbook.beans.BeanPurchase
 import eu.zeletrik.beanbook.beans.Process
 import eu.zeletrik.beanbook.beans.RoastLevel
+import eu.zeletrik.beanbook.beans.RoastProfile
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
@@ -20,6 +21,8 @@ class AnalyticsServiceTest {
         origin: String = "Ethiopia",
         price: String = "10.00",
         purchaseDate: LocalDate = LocalDate.of(2025, 1, 1),
+        roastProfile: RoastProfile = RoastProfile.FILTER,
+        usedAs: RoastProfile? = null,
     ) = BeanPurchase(
         id = UUID.randomUUID(),
         name = name,
@@ -32,6 +35,8 @@ class AnalyticsServiceTest {
         roastLevel = RoastLevel.MEDIUM,
         process = Process.WASHED,
         imageData = null,
+        roastProfile = roastProfile,
+        usedAs = usedAs,
     )
 
     private val samplePurchases = listOf(
@@ -254,5 +259,120 @@ class AnalyticsServiceTest {
         )
         val result = service.projectedMonthlyCost(listOf(verySlowBag))
         assertEquals(BigDecimal("0.01"), result)
+    }
+
+    // ── effectiveBrewMethod classification (AC-19 through AC-23) ──
+
+    @Test
+    fun `ESPRESSO profile classifies as ESPRESSO`() {
+        assertEquals(BrewMethod.ESPRESSO, purchase(roastProfile = RoastProfile.ESPRESSO).effectiveBrewMethod())
+    }
+
+    @Test
+    fun `FILTER profile classifies as FILTER`() {
+        assertEquals(BrewMethod.FILTER, purchase(roastProfile = RoastProfile.FILTER).effectiveBrewMethod())
+    }
+
+    @Test
+    fun `OMNI with usedAs ESPRESSO classifies as ESPRESSO`() {
+        assertEquals(BrewMethod.ESPRESSO, purchase(roastProfile = RoastProfile.OMNI, usedAs = RoastProfile.ESPRESSO).effectiveBrewMethod())
+    }
+
+    @Test
+    fun `OMNI with usedAs FILTER classifies as FILTER`() {
+        assertEquals(BrewMethod.FILTER, purchase(roastProfile = RoastProfile.OMNI, usedAs = RoastProfile.FILTER).effectiveBrewMethod())
+    }
+
+    @Test
+    fun `OMNI with null usedAs classifies as UNCLASSIFIED`() {
+        assertEquals(BrewMethod.UNCLASSIFIED, purchase(roastProfile = RoastProfile.OMNI, usedAs = null).effectiveBrewMethod())
+    }
+
+    // ── spendByBrewMethod (AC-24) ──
+
+    @Test
+    fun `spendByBrewMethod groups spend by effective brew method`() {
+        val beans = listOf(
+            purchase(price = "10.00", roastProfile = RoastProfile.ESPRESSO),
+            purchase(price = "20.00", roastProfile = RoastProfile.FILTER),
+            purchase(price = "15.00", roastProfile = RoastProfile.OMNI, usedAs = RoastProfile.ESPRESSO),
+            purchase(price = "5.00",  roastProfile = RoastProfile.OMNI, usedAs = null),
+        )
+        val result = service.spendByBrewMethod(beans)
+        assertEquals(BigDecimal("25.00"), result[BrewMethod.ESPRESSO])
+        assertEquals(BigDecimal("20.00"), result[BrewMethod.FILTER])
+        assertEquals(BigDecimal("5.00"),  result[BrewMethod.UNCLASSIFIED])
+    }
+
+    @Test
+    fun `spendByBrewMethod returns zero for absent groups`() {
+        val result = service.spendByBrewMethod(emptyList())
+        assertEquals(BigDecimal.ZERO, result[BrewMethod.ESPRESSO])
+        assertEquals(BigDecimal.ZERO, result[BrewMethod.FILTER])
+        assertEquals(BigDecimal.ZERO, result[BrewMethod.UNCLASSIFIED])
+    }
+
+    // ── countByBrewMethod (AC-25) ──
+
+    @Test
+    fun `countByBrewMethod counts bags per effective brew method`() {
+        val beans = listOf(
+            purchase(roastProfile = RoastProfile.ESPRESSO),
+            purchase(roastProfile = RoastProfile.ESPRESSO),
+            purchase(roastProfile = RoastProfile.FILTER),
+            purchase(roastProfile = RoastProfile.OMNI, usedAs = null),
+        )
+        val result = service.countByBrewMethod(beans)
+        assertEquals(2, result[BrewMethod.ESPRESSO])
+        assertEquals(1, result[BrewMethod.FILTER])
+        assertEquals(1, result[BrewMethod.UNCLASSIFIED])
+    }
+
+    // ── paceByBrewMethod (AC-26, AC-27, AC-28) ──
+
+    @Test
+    fun `paceByBrewMethod returns pace for ESPRESSO and FILTER groups`() {
+        val today = LocalDate.of(2025, 6, 1)
+        val beans = listOf(
+            purchase(roastProfile = RoastProfile.ESPRESSO).copy(
+                openedDate = today.minusDays(10), finishedDate = today),   // 10 days
+            purchase(roastProfile = RoastProfile.FILTER).copy(
+                openedDate = today.minusDays(20), finishedDate = today),   // 20 days
+        )
+        val result = service.paceByBrewMethod(beans)
+        assertEquals(BigDecimal("10.0"), result[BrewMethod.ESPRESSO])
+        assertEquals(BigDecimal("20.0"), result[BrewMethod.FILTER])
+    }
+
+    @Test
+    fun `paceByBrewMethod returns null when no qualifying bags for a method`() {
+        val result = service.paceByBrewMethod(emptyList())
+        assertNull(result[BrewMethod.ESPRESSO])
+        assertNull(result[BrewMethod.FILTER])
+    }
+
+    @Test
+    fun `paceByBrewMethod does not include UNCLASSIFIED key`() {
+        val result = service.paceByBrewMethod(listOf(purchase(roastProfile = RoastProfile.OMNI)))
+        assertNull(result[BrewMethod.UNCLASSIFIED], "UNCLASSIFIED must not appear in paceByBrewMethod result")
+        assertEquals(setOf(BrewMethod.ESPRESSO, BrewMethod.FILTER), result.keys)
+    }
+
+    // ── countByRoastProfile (AC-29) ──
+
+    @Test
+    fun `countByRoastProfile counts bags by raw roastProfile`() {
+        val beans = listOf(
+            purchase(roastProfile = RoastProfile.ESPRESSO),
+            purchase(roastProfile = RoastProfile.ESPRESSO),
+            purchase(roastProfile = RoastProfile.FILTER),
+            purchase(roastProfile = RoastProfile.OMNI),
+            purchase(roastProfile = RoastProfile.OMNI),
+            purchase(roastProfile = RoastProfile.OMNI),
+        )
+        val result = service.countByRoastProfile(beans)
+        assertEquals(2, result[RoastProfile.ESPRESSO])
+        assertEquals(1, result[RoastProfile.FILTER])
+        assertEquals(3, result[RoastProfile.OMNI])
     }
 }

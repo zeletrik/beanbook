@@ -47,6 +47,7 @@ class BeanPurchaseRepositoryTest {
         roastDate = LocalDate.of(2025, 1, 10),
         roastLevel = RoastLevel.LIGHT,
         process = Process.NATURAL,
+        roastProfile = eu.zeletrik.beanbook.beans.RoastProfile.FILTER,
     )
 
     // AC-3: save with new ID inserts a record
@@ -182,5 +183,22 @@ class BeanPurchaseRepositoryTest {
     @Test
     fun `table is empty at start of each test`() {
         assertTrue(service.findAll().isEmpty())
+    }
+
+    // AC-17 + AC-19 + Risk Hotspot 1/3: tags round-trip and null→emptyList default
+    @Test
+    fun `tags round-trip correctly via write and read`() {
+        val p = samplePurchase().copy(tags = listOf("fruity", "natural"))
+        service.save(p)
+        val loaded = service.findAll().first()
+        assertEquals(listOf("fruity", "natural"), loaded.tags, "Tags must survive write→read")
+    }
+
+    @Test
+    fun `bean saved without tags loads with empty tag list`() {
+        val p = samplePurchase() // tags = emptyList() by default
+        service.save(p)
+        val loaded = service.findAll().first()
+        assertTrue(loaded.tags.isEmpty(), "NULL tags column must load as emptyList()")
     }
 }

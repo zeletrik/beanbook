@@ -5,6 +5,8 @@ import com.github.mvysny.kaributesting.v10._value
 import eu.zeletrik.beanbook.analytics.AnalyticsService
 import eu.zeletrik.beanbook.beans.BeanPurchase
 import eu.zeletrik.beanbook.beans.BeanPurchaseService
+import eu.zeletrik.beanbook.beans.ExportService
+import tools.jackson.module.kotlin.jacksonObjectMapper
 import eu.zeletrik.beanbook.beans.Process
 import eu.zeletrik.beanbook.beans.RoastLevel
 import eu.zeletrik.beanbook.TestBeanPurchaseRepository
@@ -29,7 +31,7 @@ class DuplicateTest {
     fun setup() {
         MockVaadin.setup()
         repo = DuplicateTestRepository()
-        view = MainView(BeanPurchaseService(repo, repo), AnalyticsService())
+        view = MainView(BeanPurchaseService(repo, repo), AnalyticsService(), ExportService(BeanPurchaseService(repo, repo), object : eu.zeletrik.beanbook.wishlist.WishlistService(org.springframework.jdbc.core.JdbcTemplate()) { override fun findAll() = emptyList<eu.zeletrik.beanbook.wishlist.WishlistItem>() }, jacksonObjectMapper()), eu.zeletrik.beanbook.TestImportService(), eu.zeletrik.beanbook.TestPreferencesService(), eu.zeletrik.beanbook.TestWishlistService())
     }
 
     @AfterEach
@@ -43,6 +45,7 @@ class DuplicateTest {
         roastLevel = RoastLevel.LIGHT, process = Process.NATURAL,
         notes = "Blueberry", grindSettings = grind,
         rating = 5, openedDate = LocalDate.of(2025, 3, 12),
+        roastProfile = eu.zeletrik.beanbook.beans.RoastProfile.FILTER,
     )
 
     private fun triggerDuplicate(purchase: BeanPurchase) {
@@ -50,7 +53,7 @@ class DuplicateTest {
         view.refreshView()
         // Simulate the onDuplicate callback: navigate first (triggers openForCreate via tab listener),
         // then overlay profile fields — same order as MainView.onDuplicate
-        view.navigateTo(1)
+        view.navigateTo(2)
         view.addFormContent.openWithProfile(purchase)
     }
 

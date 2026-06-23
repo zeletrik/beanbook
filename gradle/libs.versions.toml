@@ -1,8 +1,9 @@
 [versions]
-kotlin = "2.2.21"
-detekt = "1.23.8"
+kotlin = "2.4.0"
+detekt = "2.0.0-alpha.3"
+graalvm-toolkit =  "1.1.1"
 sqlite-jdbc = "3.53.1.0"
-spring-boot = "4.0.6"
+spring-boot = "4.1.0"
 spring-dependency-management = "1.1.7"
 vaadin = "25.1.6"
 spring-modulith = "2.0.6"
@@ -28,8 +29,11 @@ spring-boot-starter-data-jdbc = { module = "org.springframework.boot:spring-boot
 spring-boot-starter-liquibase = { module = "org.springframework.boot:spring-boot-starter-liquibase" }
 
 [plugins]
+detekt = { id = "dev.detekt", version.ref = "detekt" }
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotlin-spring = { id = "org.jetbrains.kotlin.plugin.spring", version.ref = "kotlin" }
 spring-boot = { id = "org.springframework.boot", version.ref = "spring-boot" }
 spring-dependency-management = { id = "io.spring.dependency-management", version.ref = "spring-dependency-management" }
 vaadin = { id = "com.vaadin", version.ref = "vaadin" }
+graalvm-toolkit = { id = "org.graalvm.buildtools.native", version.ref = "graalvm-toolkit" }
+

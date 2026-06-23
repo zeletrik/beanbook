@@ -2,6 +2,7 @@ package eu.zeletrik.beanbook.ui
 
 import eu.zeletrik.beanbook.beans.Process
 import eu.zeletrik.beanbook.beans.RoastLevel
+import eu.zeletrik.beanbook.beans.RoastProfile
 import java.math.BigDecimal
 import java.time.LocalDate
 
@@ -21,4 +22,7 @@ class PurchaseFormBean {
     var rating: Int? = null
     var openedDate: LocalDate? = null
     var finishedDate: LocalDate? = null
+    var roastProfile: RoastProfile? = RoastProfile.OMNI
+    var usedAs: RoastProfile? = null
+    var tags: List<String> = emptyList()
 }

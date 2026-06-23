@@ -36,6 +36,12 @@ data class BeanPurchase(
     val openedDate: LocalDate? = null,
     @Column("finished_date")
     val finishedDate: LocalDate? = null,
+    @Column("roast_profile")
+    val roastProfile: RoastProfile,
+    @Column("used_as")
+    val usedAs: RoastProfile? = null,
+    @Column("tags")
+    val tags: List<String> = emptyList(),
 ) {
     @get:Transient
     val bagState: BagState

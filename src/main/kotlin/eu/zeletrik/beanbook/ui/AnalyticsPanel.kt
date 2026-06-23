@@ -7,11 +7,16 @@ import com.vaadin.flow.component.icon.Icon
 import com.vaadin.flow.component.icon.VaadinIcon
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout
 import com.vaadin.flow.component.orderedlayout.VerticalLayout
+import eu.zeletrik.beanbook.analytics.BrewMethod
 import eu.zeletrik.beanbook.analytics.AnalyticsService
 import eu.zeletrik.beanbook.beans.BeanPurchase
+import eu.zeletrik.beanbook.beans.RoastProfile
 import java.math.BigDecimal
 
-class AnalyticsPanel(private val analyticsService: AnalyticsService) : VerticalLayout() {
+class AnalyticsPanel(
+    private val analyticsService: AnalyticsService,
+    private val getCurrency: () -> String = { "€" },
+) : VerticalLayout() {
 
     // Exposed for test assertions
     internal val totalCostSpan = Span().also { it.setId("total-cost") }
@@ -26,6 +31,7 @@ class AnalyticsPanel(private val analyticsService: AnalyticsService) : VerticalL
     private val originBarsContainer = VerticalLayout().apply { isPadding = false; isSpacing = false; style["gap"] = "0.4rem" }
     private val beanSpendContainer = VerticalLayout().apply { isPadding = false; isSpacing = false; style["gap"] = "0.25rem" }
     private val roasterSpendContainer = VerticalLayout().apply { isPadding = false; isSpacing = false; style["gap"] = "0.25rem" }
+    private val brewMethodContainer = VerticalLayout().apply { isPadding = false; isSpacing = false; style["gap"] = "0.4rem" }
 
     init {
         setSizeFull()
@@ -67,6 +73,7 @@ class AnalyticsPanel(private val analyticsService: AnalyticsService) : VerticalL
         add(section("Origins", originBarsContainer))
         add(section("Spend by Bean", beanSpendContainer))
         add(section("Spend by Roaster", roasterSpendContainer))
+        add(section("Brew Method", brewMethodContainer))
     }
 
     fun update(purchases: List<BeanPurchase>) {
@@ -81,18 +88,19 @@ class AnalyticsPanel(private val analyticsService: AnalyticsService) : VerticalL
             originBarsContainer.removeAll()
             beanSpendContainer.removeAll()
             roasterSpendContainer.removeAll()
+            brewMethodContainer.removeAll()
             return
         }
 
-        totalCostSpan.text = analyticsService.totalCost(purchases).formatPrice()
-        avgCostValue.text = analyticsService.averageCost(purchases).formatPrice()
+        totalCostSpan.text = analyticsService.totalCost(purchases).formatPrice(getCurrency())
+        avgCostValue.text = analyticsService.averageCost(purchases).formatPrice(getCurrency())
         topOriginValue.text = analyticsService.mostCommonOrigin(purchases) ?: "—"
         val expBean = analyticsService.mostExpensiveBean(purchases)
         priceyBeanValue.text = expBean?.name ?: "—"
         // Update secondary price in priceyBeanValue's parent (stored sibling span not needed — just set as subtitle)
         priceyRoasterValue.text = analyticsService.mostExpensiveRoaster(purchases) ?: "—"
         avgPaceValue.text = analyticsService.averagePaceDays(purchases)?.let { "${it.toInt()} days" } ?: "—"
-        monthlyCostValue.text = analyticsService.projectedMonthlyCost(purchases)?.formatPrice()?.let { "$it/mo" } ?: "—"
+        monthlyCostValue.text = analyticsService.projectedMonthlyCost(purchases)?.formatPrice(getCurrency())?.let { "$it/mo" } ?: "—"
 
         // Origin bars
         val originBreakdown = analyticsService.originBreakdown(purchases)
@@ -107,7 +115,66 @@ class AnalyticsPanel(private val analyticsService: AnalyticsService) : VerticalL
         // Spend lists
         buildSpendList(beanSpendContainer, analyticsService.totalSpendByBean(purchases))
         buildSpendList(roasterSpendContainer, analyticsService.totalSpendByRoaster(purchases))
+
+        // Brew Method section
+        brewMethodContainer.removeAll()
+        val spendByBrew  = analyticsService.spendByBrewMethod(purchases)
+        val countByBrew  = analyticsService.countByBrewMethod(purchases)
+        val paceByBrew   = analyticsService.paceByBrewMethod(purchases)
+        val countByProfile = analyticsService.countByRoastProfile(purchases)
+
+        listOf(BrewMethod.ESPRESSO to "Espresso", BrewMethod.FILTER to "Filter", BrewMethod.UNCLASSIFIED to "Unclassified").forEach { (method, label) ->
+            val spend = spendByBrew[method] ?: BigDecimal.ZERO
+            val count = countByBrew[method] ?: 0
+            val pace  = paceByBrew[method]
+            val paceText = if (pace != null) "${pace.toInt()} days" else "—"
+            val row = buildBrewMethodRow(label, spend.formatPrice(getCurrency()), count, paceText, method != BrewMethod.UNCLASSIFIED)
+            brewMethodContainer.add(row)
+        }
+
+        // Raw roast profile distribution
+        brewMethodContainer.add(Span("Purchased by profile").apply {
+            style["font-size"] = "var(--lumo-font-size-xs)"
+            style["color"] = "var(--lumo-secondary-text-color)"
+            style["margin-top"] = "0.5rem"
+        })
+        listOf(RoastProfile.ESPRESSO to "Espresso", RoastProfile.FILTER to "Filter", RoastProfile.OMNI to "Omni").forEach { (profile, label) ->
+            val count = countByProfile[profile] ?: 0
+            brewMethodContainer.add(buildProfileCountRow("$label: $count bags"))
+        }
     }
+
+    private fun buildBrewMethodRow(label: String, spend: String, count: Int, pace: String, showPace: Boolean): HorizontalLayout {
+        val labelSpan = Span(label).apply {
+            style["font-size"] = "var(--lumo-font-size-s)"
+            style["min-width"] = "90px"
+        }
+        val spendSpan = Span(spend).apply {
+            style["font-weight"] = "600"
+            style["font-size"] = "var(--lumo-font-size-s)"
+            style["color"] = "var(--lumo-primary-color)"
+        }
+        val countSpan = Span("${count}×").apply {
+            style["font-size"] = "var(--lumo-font-size-xs)"
+            style["color"] = "var(--lumo-secondary-text-color)"
+            style["min-width"] = "30px"
+        }
+        val paceSpan = Span(if (showPace) pace else "").apply {
+            style["font-size"] = "var(--lumo-font-size-xs)"
+            style["color"] = "var(--lumo-secondary-text-color)"
+            style["min-width"] = "60px"
+        }
+        return HorizontalLayout(labelSpan, spendSpan, countSpan, paceSpan).apply {
+            isSpacing = true; isPadding = false
+            style["width"] = "100%"; style["align-items"] = "center"
+        }
+    }
+
+    private fun buildProfileCountRow(text: String): HorizontalLayout =
+        HorizontalLayout(Span(text).apply {
+            style["font-size"] = "var(--lumo-font-size-xs)"
+            style["color"] = "var(--lumo-secondary-text-color)"
+        }).apply { isPadding = false; isSpacing = false }
 
     // ── Builders ──────────────────────────────────────────────────
 
@@ -219,7 +286,7 @@ class AnalyticsPanel(private val analyticsService: AnalyticsService) : VerticalL
                     style["text-overflow"] = "ellipsis"; style["white-space"] = "nowrap"
                     style["font-size"] = "var(--lumo-font-size-s)"
                 },
-                Span(amount.formatPrice()).apply {
+                Span(amount.formatPrice(getCurrency())).apply {
                     style["font-weight"] = "600"; style["font-size"] = "var(--lumo-font-size-s)"
                     style["color"] = "var(--lumo-primary-color)"; style["white-space"] = "nowrap"
                 }
@@ -245,4 +312,4 @@ class AnalyticsPanel(private val analyticsService: AnalyticsService) : VerticalL
         }
 }
 
-internal fun BigDecimal.formatPrice(): String = "€${this.setScale(2, java.math.RoundingMode.HALF_UP).toPlainString()}"
+internal fun BigDecimal.formatPrice(currency: String = "€"): String = "${currency}${this.setScale(2, java.math.RoundingMode.HALF_UP).toPlainString()}"

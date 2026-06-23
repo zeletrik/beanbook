@@ -44,6 +44,10 @@ internal fun Int?.toStars(): String = when (this) {
 class MainView(
     private val beanPurchaseService: BeanPurchaseService,
     private val analyticsService: AnalyticsService,
+    private val exportService: eu.zeletrik.beanbook.beans.ExportService,
+    private val importService: eu.zeletrik.beanbook.beans.ImportService,
+    private val preferencesService: eu.zeletrik.beanbook.PreferencesService,
+    private val wishlistService: eu.zeletrik.beanbook.wishlist.WishlistService,
 ) : VerticalLayout() {
 
     internal val cardsLayout = Div().apply {
@@ -55,8 +59,18 @@ class MainView(
         style["width"] = "100%"
         style["box-sizing"] = "border-box"
     }
-    internal val emptyStateMessage = Paragraph("No purchases recorded yet.").also {
-        it.setId("empty-state"); it.style["padding"] = "1rem"
+    internal val emptyStateMessage = Div().apply {
+        setId("empty-state")
+        style["flex"] = "1"
+        style["width"] = "100%"
+        style["display"] = "flex"
+        style["flex-direction"] = "column"
+        style["align-items"] = "center"
+        style["justify-content"] = "center"
+        style["gap"] = "0.75rem"
+        style["padding"] = "2rem 1rem"
+        style["text-align"] = "center"
+        style["box-sizing"] = "border-box"
     }
 
     internal val purchaseCount: Int get() = beanPurchaseService.findAll().size
@@ -77,13 +91,16 @@ class MainView(
     }
 
     // Filter + sort state
-    private var filterState = FilterState()
-    private val filterSortDialog = FilterSortDialog { newState ->
-        filterState = newState
-        updateFilterButton()
-        refreshView()
-    }
-    private val searchField = TextField().apply {
+    internal var filterState = FilterState()
+    internal val filterSortDialog = FilterSortDialog(
+        onApply = { newState ->
+            filterState = newState
+            updateFilterButton()
+            refreshView()
+        },
+        getAvailableTags = { beanPurchaseService.findAll().flatMap { it.tags }.toSortedSet() },
+    )
+    internal val searchField = TextField().apply {
         placeholder = "Search name, roaster, origin…"
         prefixComponent = Icon(VaadinIcon.SEARCH)
         isClearButtonVisible = true
@@ -102,41 +119,54 @@ class MainView(
         style["white-space"] = "nowrap"
     }
 
-    private val analyticsPanel = AnalyticsPanel(analyticsService)
+    private val analyticsPanel = AnalyticsPanel(analyticsService, preferencesService::getCurrency)
     // Expose totalCostSpan for test assertions (delegates to panel)
     internal val totalCostSpan: Span get() = analyticsPanel.totalCostSpan
 
     internal val addFormContent = PurchaseFormContent(
-        onSave = { bean: PurchaseFormBean, id: UUID? -> handleFormSave(bean, id); navigateTo(0) }
+        onSave = { bean: PurchaseFormBean, id: UUID? -> handleFormSave(bean, id); navigateTo(0) },
+        getAllTags = { beanPurchaseService.findAll().flatMap { it.tags }.toSet() },
     )
 
     // purchaseForm and detailView reference each other via lambdas — break the cycle with lateinit
     internal lateinit var purchaseForm: PurchaseForm
-    private lateinit var detailView: PurchaseDetailView
+    internal lateinit var detailView: PurchaseDetailView
 
-    private val purchasesTab = Tab(Icon(VaadinIcon.LIST), Span("Purchases"))
-    private val addTab = Tab(Icon(VaadinIcon.PLUS_CIRCLE_O), Span("Add"))
-    private val analyticsTab = Tab(Icon(VaadinIcon.CHART), Span("Analytics"))
-    private lateinit var tabs: Tabs
+    private val purchasesTab = Tab(Icon(VaadinIcon.LIST))
+    private val addTab = Tab(Icon(VaadinIcon.PLUS_CIRCLE_O))
+    private val analyticsTab = Tab(Icon(VaadinIcon.CHART))
+    private val settingsTab = Tab(Icon(VaadinIcon.COG))
+    private val wishlistTab = Tab(Icon(VaadinIcon.HEART))
+    internal lateinit var tabs: Tabs
     private lateinit var pages: List<VerticalLayout>
+    internal lateinit var settingsPage: VerticalLayout
 
     init {
         // Initialise cross-referencing objects first, in init where ordering is explicit
-        purchaseForm = PurchaseForm { bean: PurchaseFormBean, id: UUID? ->
-            val updated = beanFromBean(bean, id)
-            beanPurchaseService.save(updated)
-            refreshView()
-            if (detailView.isVisible) detailView.show(updated)
-        }
+        purchaseForm = PurchaseForm(
+            onSave = { bean: PurchaseFormBean, id: UUID? ->
+                val updated = beanFromBean(bean, id)
+                try {
+                    beanPurchaseService.save(updated)
+                    NotificationHelper.success("Bean saved")
+                    refreshView()
+                    if (detailView.isVisible) detailView.show(updated)
+                } catch (e: Exception) {
+                    NotificationHelper.error("Failed to save — please try again")
+                }
+            },
+            getAllTags = { beanPurchaseService.findAll().flatMap { it.tags }.toSet() },
+        )
         detailView = PurchaseDetailView(
             onBack = { hideDetail() },
             onEdit = { p: BeanPurchase -> purchaseForm.openForEdit(p) },
             onDelete = { purchase: BeanPurchase -> showDeleteConfirmation(purchase) { hideDetail() } },
             onSave = { updated: BeanPurchase -> beanPurchaseService.save(updated); refreshView() },
+            getCurrency = preferencesService::getCurrency,
             // Duplicate: navigate to Add tab first (tab listener calls openForCreate to reset),
             // then immediately pre-fill with profile fields from source (RULE-11).
             onDuplicate = { purchase: BeanPurchase ->
-                navigateTo(1)                          // triggers openForCreate via tab listener
+                navigateTo(2)                          // Add is now index 2; triggers openForCreate via tab listener
                 addFormContent.openWithProfile(purchase) // then overlay profile fields
             },
         )
@@ -148,17 +178,21 @@ class MainView(
         val purchasesPage = buildPurchasesPage()
         val addPage = buildAddPage()
         val analyticsPage = buildAnalyticsPage()
-        pages = listOf(purchasesPage, addPage, analyticsPage)
+        val wishlistPage = buildWishlistPage()  // must come before buildSettingsPage so wishlistView is initialized
+        settingsPage = buildSettingsPage()
+        pages = listOf(purchasesPage, analyticsPage, addPage, wishlistPage, settingsPage)
 
         addPage.isVisible = false
         analyticsPage.isVisible = false
+        settingsPage.isVisible = false
+        wishlistPage.isVisible = false
 
         val contentArea = VerticalLayout(*pages.toTypedArray()).apply {
             setSizeFull(); isPadding = false; isSpacing = false
             style["padding-bottom"] = "calc(56px + env(safe-area-inset-bottom))"
         }
 
-        tabs = Tabs(purchasesTab, addTab, analyticsTab).apply {
+        tabs = Tabs(purchasesTab, analyticsTab, addTab, wishlistTab, settingsTab).apply {
             addThemeVariants(TabsVariant.LUMO_EQUAL_WIDTH_TABS)
             style["position"] = "fixed"; style["bottom"] = "0"
             style["left"] = "0"; style["right"] = "0"; style["width"] = "100%"
@@ -256,6 +290,29 @@ class MainView(
             setFlexGrow(1.0, analyticsPanel)
         }
 
+    private fun buildSettingsPage(): VerticalLayout {
+        val settingsView = SettingsView(exportService, importService, preferencesService, onImportComplete = {
+            refreshView()
+            wishlistView.refreshList()
+        })
+        val scrollable = VerticalLayout(H2("Settings"), settingsView).apply {
+            isPadding = true; isSpacing = true; width = "100%"
+        }
+        return VerticalLayout(scrollable).apply {
+            setSizeFull(); isPadding = false; isSpacing = false
+            style["overflow-y"] = "auto"
+        }
+    }
+
+    private lateinit var wishlistView: WishlistView
+
+    private fun buildWishlistPage(): VerticalLayout {
+        wishlistView = WishlistView(wishlistService)
+        return VerticalLayout(wishlistView).apply {
+            setSizeFull(); isPadding = false; isSpacing = false
+        }
+    }
+
     private fun buildCard(purchase: BeanPurchase): HorizontalLayout {
         val thumbnail = buildCardThumbnail(purchase)
         val details = buildCardDetails(purchase)
@@ -266,6 +323,7 @@ class MainView(
             style["border-radius"] = "var(--lumo-border-radius-l)"
             style["background"] = "var(--lumo-base-color)"
             style["box-shadow"] = "0 1px 4px rgba(0,0,0,0.08)"
+            style["border"] = "1px solid var(--lumo-contrast-10pct)"
             style["cursor"] = "pointer"; style["width"] = "100%"
             addClickListener { showDetail(purchase) }
         }
@@ -328,7 +386,7 @@ class MainView(
                 style["color"] = "var(--lumo-secondary-text-color)"; style["font-size"] = "var(--lumo-font-size-s)"
                 style["overflow"] = "hidden"; style["text-overflow"] = "ellipsis"; style["white-space"] = "nowrap"
             })
-            add(Span("${purchase.pricePerUnit.formatPrice()}  ·  ${purchase.weightGrams} g").apply {
+            add(Span("${purchase.pricePerUnit.formatPrice(preferencesService.getCurrency())}  ·  ${purchase.weightGrams} g").apply {
                 style["font-size"] = "var(--lumo-font-size-s)"; style["color"] = "var(--lumo-secondary-text-color)"
             })
             add(bottomRow)
@@ -340,7 +398,15 @@ class MainView(
         dialog.setId("delete-confirm-dialog")
         dialog.add(Paragraph("Delete '${purchase.name}'?"))
         val confirmBtn = Button("Confirm") {
-            beanPurchaseService.delete(purchase.id); refreshView(); onConfirmed(); dialog.close()
+            try {
+                beanPurchaseService.delete(purchase.id)
+                NotificationHelper.success("Bean deleted")
+                refreshView()
+                onConfirmed()
+                dialog.close()
+            } catch (e: Exception) {
+                NotificationHelper.error("Failed to delete — please try again")
+            }
         }.apply { setId("confirm-delete-btn"); addThemeVariants(ButtonVariant.LUMO_ERROR) }
         val cancelBtn = Button("Cancel") { dialog.close() }.apply { setId("cancel-delete-btn") }
         dialog.add(HorizontalLayout(confirmBtn, cancelBtn))
@@ -361,11 +427,19 @@ class MainView(
             rating = bean.rating,
             openedDate = bean.openedDate,
             finishedDate = bean.finishedDate,
+            roastProfile = bean.roastProfile ?: eu.zeletrik.beanbook.beans.RoastProfile.OMNI,
+            usedAs = if ((bean.roastProfile ?: eu.zeletrik.beanbook.beans.RoastProfile.OMNI) == eu.zeletrik.beanbook.beans.RoastProfile.OMNI) bean.usedAs else null,
+            tags = bean.tags.map { it.trim().lowercase() }.filter { it.isNotBlank() }.distinct(),
         )
 
     private fun handleFormSave(bean: PurchaseFormBean, existingId: UUID?) {
-        beanPurchaseService.save(beanFromBean(bean, existingId))
-        refreshView()
+        try {
+            beanPurchaseService.save(beanFromBean(bean, existingId))
+            NotificationHelper.success("Bean saved")
+            refreshView()
+        } catch (e: Exception) {
+            NotificationHelper.error("Failed to save — please try again")
+        }
     }
 
     internal fun refreshView() {
@@ -377,26 +451,59 @@ class MainView(
         if (!detailView.isVisible) {
             when {
                 all.isEmpty() -> {
-                    emptyStateMessage.text = "No purchases recorded yet."
+                    showFirstUseEmptyState()
                     emptyStateMessage.isVisible = true
+                    purchasesScrollArea.isVisible = false
                     cardsLayout.isVisible = false
                 }
                 purchases.isEmpty() -> {
-                    emptyStateMessage.text = "No beans match your search or filters."
+                    showNoResultsEmptyState()
                     emptyStateMessage.isVisible = true
+                    purchasesScrollArea.isVisible = false
                     cardsLayout.isVisible = false
                 }
                 else -> {
                     emptyStateMessage.isVisible = false
+                    purchasesScrollArea.isVisible = true
                     cardsLayout.isVisible = true
                     purchases.forEach { cardsLayout.add(buildCard(it)) }
                 }
             }
         } else {
             emptyStateMessage.isVisible = false
+            purchasesScrollArea.isVisible = false
             cardsLayout.isVisible = false
             purchases.forEach { cardsLayout.add(buildCard(it)) }
         }
         analyticsPanel.update(purchases)
+    }
+
+    private fun showFirstUseEmptyState() {
+        emptyStateMessage.removeAll()
+        emptyStateMessage.add(Span("☕").apply { style["font-size"] = "3rem" })
+        emptyStateMessage.add(Span("No beans yet").apply {
+            style["font-weight"] = "700"
+            style["font-size"] = "var(--lumo-font-size-xl)"
+        })
+        emptyStateMessage.add(Span("Start tracking your coffee journey").apply {
+            style["color"] = "var(--lumo-secondary-text-color)"
+            style["font-size"] = "var(--lumo-font-size-s)"
+        })
+        emptyStateMessage.add(
+            Button("Add your first bean") { navigateTo(1) }.apply {
+                setId("empty-state-cta")
+                addThemeVariants(ButtonVariant.LUMO_PRIMARY)
+                style["margin-top"] = "0.5rem"
+            }
+        )
+    }
+
+    private fun showNoResultsEmptyState() {
+        emptyStateMessage.removeAll()
+        emptyStateMessage.add(Span("🔍").apply { style["font-size"] = "3rem" })
+        emptyStateMessage.add(Span("No beans match your search or filters").apply {
+            style["color"] = "var(--lumo-secondary-text-color)"
+            style["font-size"] = "var(--lumo-font-size-s)"
+        })
     }
 }
