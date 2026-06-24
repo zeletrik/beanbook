@@ -96,6 +96,22 @@ class ImportCurrencyWishlistTest {
         )
     }
 
+    // #2: a failed import surfaces the specific reason, not just a generic message
+    @Test
+    fun `import failure notification includes the reason`() {
+        val view = makeView()
+        view.navigateTo(AppTab.SETTINGS)
+        val settingsView = view.settingsPage._find<SettingsView>().first()
+
+        RecordedNotifications.shown.clear()
+        settingsView.onImportFinished(ImportResult.failure("the file isn't valid JSON"))
+
+        assertTrue(
+            RecordedNotifications.shown.any { (text, isError) -> isError && text.contains("isn't valid JSON") },
+            "Failure notification should include the reason, got: ${RecordedNotifications.shown}"
+        )
+    }
+
     // AC-12: (d) currency selector is present in SettingsView
     @Test
     fun `Settings page has currency selector`() {

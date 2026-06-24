@@ -176,6 +176,16 @@ class AnalyticsServiceTest {
         assertNull(service.mostExpensiveBean(emptyList()))
     }
 
+    // Priciest is normalised by weight: a small premium bag beats a larger cheaper one even though
+    // its whole-bag price is lower (€30/100g = €0.30/g  vs  €40/1000g = €0.04/g).
+    @Test
+    fun `mostExpensiveBean normalises by weight, not whole-bag price`() {
+        val smallPremium = purchase(name = "Gesha 100g", price = "30.00").copy(weightGrams = 100)
+        val bigCheap = purchase(name = "House 1kg", price = "40.00").copy(weightGrams = 1000)
+        val result = service.mostExpensiveBean(listOf(bigCheap, smallPremium))
+        assertEquals("Gesha 100g", result?.name)
+    }
+
     // AC-27: most expensive roaster — happy path
     @Test
     fun `mostExpensiveRoaster returns roaster with highest average price`() {
@@ -197,6 +207,15 @@ class AnalyticsServiceTest {
     @Test
     fun `mostExpensiveRoaster returns null for empty list`() {
         assertNull(service.mostExpensiveRoaster(emptyList()))
+    }
+
+    // Top Roaster is normalised by weight (mean price per gram), so a roaster of small premium bags
+    // beats one selling larger cheaper bags despite a lower per-bag price.
+    @Test
+    fun `mostExpensiveRoaster normalises by weight, not whole-bag price`() {
+        val premium = purchase(roaster = "Tiny Premium", price = "30.00").copy(weightGrams = 100) // 0.30/g
+        val bulk = purchase(roaster = "Bulk Cheap", price = "40.00").copy(weightGrams = 1000)      // 0.04/g
+        assertEquals("Tiny Premium", service.mostExpensiveRoaster(listOf(bulk, premium)))
     }
 
     // ── Consumption Pace (AC-3 through AC-11) ────────────────────

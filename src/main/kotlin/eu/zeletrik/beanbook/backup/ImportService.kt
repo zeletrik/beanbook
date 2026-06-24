@@ -15,10 +15,20 @@ import org.springframework.transaction.annotation.Transactional
  * Outcome of an import: the number of persisted [purchases] and [wishlist] items, how many records were [skipped] as
  * unparseable, and whether the import overall succeeded.
  */
-data class ImportResult(val purchases: Int, val wishlist: Int, val skipped: Int, val success: Boolean = true) {
+data class ImportResult(
+    val purchases: Int,
+    val wishlist: Int,
+    val skipped: Int,
+    val success: Boolean = true,
+    /** Short, user-facing reason when [success] is `false` (e.g. "not valid JSON"); null on success. */
+    val error: String? = null,
+) {
     companion object {
         /** Sentinel result for a failed import (e.g. unparseable input); reports zero records and [success] `false`. */
         val FAILURE = ImportResult(0, 0, 0, success = false)
+
+        /** A failed import carrying a short [reason] to surface to the user. */
+        fun failure(reason: String) = ImportResult(0, 0, 0, success = false, error = reason)
     }
 }
 
@@ -45,10 +55,10 @@ class ImportService(
             objectMapper.readTree(bytes)
         } catch (e: Exception) {
             log.warn("Import failed: could not parse JSON", e)
-            return ImportResult.FAILURE
+            return ImportResult.failure("the file isn't valid JSON")
         }
 
-        if (bytes.isEmpty() || root.isNull) return ImportResult.FAILURE
+        if (bytes.isEmpty() || root.isNull) return ImportResult.failure("the file is empty")
 
         val purchaseNodes: Iterable<JsonNode>
         val wishlistNodes: Iterable<JsonNode>
@@ -64,7 +74,7 @@ class ImportService(
                 purchaseNodes = root.path("purchases").takeIf { it.isArray } ?: emptyList()
                 wishlistNodes = root.path("wishlist").takeIf { it.isArray } ?: emptyList()
             }
-            else -> return ImportResult.FAILURE
+            else -> return ImportResult.failure("expected a purchases array or a backup object")
         }
 
         var skipped = 0

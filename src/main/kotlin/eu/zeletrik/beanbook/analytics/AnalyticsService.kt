@@ -59,23 +59,35 @@ class AnalyticsService {
             .minOrNull()
     }
 
+    /**
+     * The priciest bean normalised by weight (price per gram), so a small premium bag isn't beaten by
+     * a large cheap one. [BeanPurchase.weightGrams] is always > 0; ties break by earliest purchase.
+     */
     fun mostExpensiveBean(purchases: List<BeanPurchase>): BeanPurchase? {
         if (purchases.isEmpty()) return null
-        val maxPrice = purchases.maxOf { it.price }
+        val maxPerGram = purchases.maxOf { it.pricePerGram() }
         return purchases
-            .filter { it.price == maxPrice }
+            .filter { it.pricePerGram() == maxPerGram }
             .minByOrNull { it.purchaseDate }
     }
 
+    private fun BeanPurchase.pricePerGram(): BigDecimal =
+        price.divide(BigDecimal(weightGrams), 10, RoundingMode.HALF_UP)
+
+    /**
+     * The roaster whose beans are priciest on average, normalised by weight (mean price per gram)
+     * so a roaster of small premium bags isn't beaten by one selling large cheap ones. Ties break
+     * by alphabetical roaster name.
+     */
     fun mostExpensiveRoaster(purchases: List<BeanPurchase>): String? {
         if (purchases.isEmpty()) return null
-        val averageByRoaster = purchases.groupBy { it.roaster }
+        val avgPerGramByRoaster = purchases.groupBy { it.roaster }
             .mapValues { (_, ps) ->
-                ps.fold(BigDecimal.ZERO) { acc, p -> acc + p.price }
+                ps.fold(BigDecimal.ZERO) { acc, p -> acc + p.pricePerGram() }
                     .divide(BigDecimal(ps.size), 10, RoundingMode.HALF_UP)
             }
-        val maxAverage = averageByRoaster.values.max()
-        return averageByRoaster
+        val maxAverage = avgPerGramByRoaster.values.max()
+        return avgPerGramByRoaster
             .filter { (_, avg) -> avg == maxAverage }
             .keys
             .minOrNull()

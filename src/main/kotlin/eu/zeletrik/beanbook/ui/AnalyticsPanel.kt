@@ -51,9 +51,14 @@ class AnalyticsPanel(
         style["flex-direction"] = "column"
         style["align-items"] = "center"
         style["justify-content"] = "center"
+        // Full width + grow so it actually centres in the panel: the panel is a VerticalLayout
+        // (children default to align-items:flex-start), so without width:100% the block hugs the left.
+        style["width"] = "100%"
+        style["flex"] = "1"
         style["gap"] = "0.75rem"
         style["padding"] = "3rem 1rem"
         style["text-align"] = "center"
+        style["box-sizing"] = "border-box"
         style["color"] = "var(--lumo-secondary-text-color)"
         add(
             Icon(VaadinIcon.COFFEE).apply {
@@ -328,6 +333,9 @@ class AnalyticsPanel(
             VerticalLayout(valueLbl, barArea, monthLbl).apply {
                 isPadding = false; isSpacing = false; style["gap"] = "2px"
                 style["align-items"] = "center"; style["flex"] = "1"
+                // Cap so a sparse chart (1–2 months) shows tidy centred bars instead of one huge bar;
+                // with a full 6-month window the columns still shrink to share the width.
+                style["max-width"] = "33%"
                 // Text alternative for screen readers (the bars convey value by height alone).
                 element.setAttribute(
                     "aria-label",
@@ -337,7 +345,7 @@ class AnalyticsPanel(
         }
         spendChartContainer.add(HorizontalLayout(*columns.toTypedArray()).apply {
             isPadding = false; width = "100%"
-            style["align-items"] = "flex-end"; style["gap"] = "0.25rem"
+            style["align-items"] = "flex-end"; style["justify-content"] = "center"; style["gap"] = "0.25rem"
         })
     }
 

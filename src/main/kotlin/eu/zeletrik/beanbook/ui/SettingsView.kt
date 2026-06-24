@@ -119,7 +119,7 @@ class SettingsView(
     /** Surfaces an import result to the user. Extracted so the notification wiring is testable. */
     internal fun onImportFinished(result: ImportResult) {
         if (!result.success) {
-            NotificationHelper.error("Import failed — invalid or empty file")
+            NotificationHelper.error("Import failed — ${result.error ?: "invalid or empty file"}")
             return
         }
         val msg = buildString {
