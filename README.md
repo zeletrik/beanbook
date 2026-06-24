@@ -184,9 +184,15 @@ Then start it with Docker Compose:
 docker compose up -d
 ```
 
-The provided `compose.yaml` maps port `8001`, sets `SERVER_ADDRESS=0.0.0.0` so the container is
-reachable, points `SPRING_DATASOURCE_URL` at `/data/beanbook.db` (WAL mode), and persists the database
-on a named `beanbook-data` volume.
+The provided `compose.yaml` maps port `8001`, points `DATASOURCE_PATH` at `/data/beanbook.db`, and
+persists the database on a named `beanbook-data` volume.
+
+It also brings up a local **Ollama** server (model cache on an `ollama-models` volume) and enables on-box
+AI-assisted entry: on first run an `ollama-pull` step downloads the `granite3.2-vision` model (several GB,
+cached afterwards), after which photo/URL auto-fill works with **no API key and no data leaving the host**.
+To run without AI, drop the `BEANBOOK_AI_*` env vars and the `ollama` / `ollama-pull` services (see the
+comments in `compose.yaml`). To use OpenAI instead of local inference, set `BEANBOOK_AI_PROVIDER=OPENAI`
+and `OPENAI_API_KEY` and remove the Ollama services.
 
 ## Project structure
 
