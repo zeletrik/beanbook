@@ -251,6 +251,7 @@ class PurchaseFormContent(
         if (aiExtractionService != null) {
             listOf(nameField, roasterField, originField, notesField).forEach { it.clearMarkOnEdit() }
             roastLevelField.clearMarkOnEdit()
+            roastProfileField.clearMarkOnEdit()
             processField.clearMarkOnEdit()
             weightField.clearMarkOnEdit()
             priceField.clearMarkOnEdit()
@@ -347,7 +348,11 @@ class PurchaseFormContent(
             roastLevelField.value = extraction.roastLevel
             markAi(roastLevelField)
         }
-        if (extraction.roastProfile != null) {
+        // The roast-profile Select is never blank (defaults to OMNI), so "fill only blanks" can't apply.
+        // Override only while it's still at the OMNI default — a profile the user already chose is kept.
+        if (roastProfileField.value == RoastProfile.OMNI &&
+            extraction.roastProfile != null && extraction.roastProfile != RoastProfile.OMNI
+        ) {
             roastProfileField.value = extraction.roastProfile
             markAi(roastProfileField)
         }
@@ -394,7 +399,7 @@ class PurchaseFormContent(
 
     private fun clearAiMarks() = listOf<HasStyle>(
         nameField, roasterField, originField, notesField,
-        roastLevelField, processField, weightField, priceField, roastDateField,
+        roastLevelField, roastProfileField, processField, weightField, priceField, roastDateField,
     ).forEach { it.removeClassName(AI_CLASS) }
 
     private fun configureBinder() {

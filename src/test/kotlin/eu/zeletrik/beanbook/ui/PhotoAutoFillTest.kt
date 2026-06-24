@@ -146,6 +146,17 @@ class PhotoAutoFillTest {
     }
 
     @Test
+    fun `a brew profile the user already chose is not overwritten`() {
+        val form = formWith(stubService(BeanExtraction()))
+        form.roastProfileField.value = RoastProfile.FILTER // user's own choice before auto-fill
+
+        form.applyExtraction(BeanExtraction(roastProfile = RoastProfile.ESPRESSO))
+
+        assertEquals(RoastProfile.FILTER, form.roastProfileField.value, "User's profile must be preserved")
+        assertFalse(form.roastProfileField.hasClassName("ai-suggested"))
+    }
+
+    @Test
     fun `clicking auto-fill runs the extraction and confirms`() {
         val form = formWith(stubService(BeanExtraction(name = "Ethiopia Yirgacheffe", roaster = "Acme")))
         form.pendingImageData = byteArrayOf(1, 2, 3)
