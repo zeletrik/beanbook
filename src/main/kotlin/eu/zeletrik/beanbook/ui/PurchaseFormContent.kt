@@ -106,10 +106,18 @@ class PurchaseFormContent(
 
     // Image upload
     internal var pendingImageData: ByteArray? = null
+    private val uploadHint = Span("JPEG, PNG, or WebP · max 5 MB").also {
+        it.style["font-size"] = "var(--lumo-font-size-xs)"
+        it.style["color"] = "var(--lumo-secondary-text-color)"
+    }
     private val uploadErrorLabel = Span().also {
         it.setId("upload-error")
         it.isVisible = false
         it.style["color"] = "var(--lumo-error-color)"
+        it.style["font-size"] = "var(--lumo-font-size-s)"
+        // Constrain so a long message wraps instead of overflowing the collapsed section on mobile.
+        it.style["max-width"] = "100%"
+        it.style["word-break"] = "break-word"
     }
     internal val currentImageDisplay = Image().also {
         it.setId("current-image")
@@ -149,7 +157,7 @@ class PurchaseFormContent(
 
     internal val photoDetails = Details(
         "Photo",
-        VerticalLayout(existingImageLabel, currentImageDisplay, uploadComponent, uploadErrorLabel)
+        VerticalLayout(existingImageLabel, currentImageDisplay, uploadComponent, uploadHint, uploadErrorLabel)
             .apply { isPadding = false; isSpacing = false },
     ).apply { setId("section-photo") }
 
@@ -262,8 +270,22 @@ class PurchaseFormContent(
             .bind({ it.rating }, { b, v -> b.rating = v })
         binder.forField(openedDateField)
             .bind({ it.openedDate }, { b, v -> b.openedDate = v })
-        binder.forField(finishedDateField)
+        val finishedBinding = binder.forField(finishedDateField)
+            // Cross-field: a bag can't be finished before it was opened. Reads the opened field's
+            // current value (the binder is non-buffered) so analytics never ingests a negative pace.
+            .withValidator(
+                { finished ->
+                    val opened = openedDateField.value
+                    finished == null || opened == null || !finished.isBefore(opened)
+                },
+                "Can't be before the opened date",
+            )
             .bind({ it.finishedDate }, { b, v -> b.finishedDate = v })
+        // Re-check only the finished field when the opened date changes (validating the whole binder
+        // here would prematurely flag still-empty required fields on the create form).
+        openedDateField.addValueChangeListener {
+            if (finishedDateField.value != null) finishedBinding.validate()
+        }
     }
 
     fun openForCreate() {

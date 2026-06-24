@@ -139,6 +139,27 @@ class PurchaseFormValidationTest {
         assertEquals(countBefore, view.purchaseCount)
     }
 
+    // Cross-field: a finished date before the opened date is rejected (would create a negative pace).
+    @Test
+    fun `finished date before opened date is rejected`() {
+        fillValidForm()
+        addForm.openedDateField._value = LocalDate.of(2025, 2, 1)
+        addForm.finishedDateField._value = LocalDate.of(2025, 1, 1)
+        val countBefore = view.purchaseCount
+        addForm.saveButton.click()
+        assertEquals(countBefore, view.purchaseCount)
+    }
+
+    @Test
+    fun `finished date on or after opened date is accepted`() {
+        fillValidForm()
+        addForm.openedDateField._value = LocalDate.of(2025, 1, 1)
+        addForm.finishedDateField._value = LocalDate.of(2025, 2, 1)
+        val countBefore = view.purchaseCount
+        addForm.saveButton.click()
+        assertEquals(countBefore + 1, view.purchaseCount)
+    }
+
     // AC-13: blank notes accepted (optional field)
     @Test
     fun `blank notes field is accepted without error`() {

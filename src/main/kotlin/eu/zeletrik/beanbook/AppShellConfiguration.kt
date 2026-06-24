@@ -77,9 +77,10 @@ class AppShellConfiguration : AppShellConfigurator {
               --lumo-contrast-10pct: rgba(255, 250, 245, 0.1);
               --lumo-contrast-5pct:  rgba(255, 250, 245, 0.05);
               --lumo-body-text-color: rgba(255, 250, 245, 0.87);
-              --lumo-secondary-text-color: rgba(255, 250, 245, 0.60);
-              --lumo-tertiary-text-color: rgba(255, 250, 245, 0.40);
-              --lumo-disabled-text-color: rgba(255, 250, 245, 0.25);
+              /* Secondary/tertiary bumped from 0.60/0.40 for AA contrast on the dark base. */
+              --lumo-secondary-text-color: rgba(255, 250, 245, 0.75);
+              --lumo-tertiary-text-color: rgba(255, 250, 245, 0.55);
+              --lumo-disabled-text-color: rgba(255, 250, 245, 0.30);
             }
         """.trimIndent()
     }
