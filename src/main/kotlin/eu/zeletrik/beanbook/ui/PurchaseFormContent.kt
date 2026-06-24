@@ -274,7 +274,10 @@ class PurchaseFormContent(
             // Cross-field: a bag can't be finished before it was opened. Reads the opened field's
             // current value (the binder is non-buffered) so analytics never ingests a negative pace.
             .withValidator(
-                { finished -> finished == null || openedDateField.value == null || !finished.isBefore(openedDateField.value) },
+                { finished ->
+                    val opened = openedDateField.value
+                    finished == null || opened == null || !finished.isBefore(opened)
+                },
                 "Can't be before the opened date",
             )
             .bind({ it.finishedDate }, { b, v -> b.finishedDate = v })
