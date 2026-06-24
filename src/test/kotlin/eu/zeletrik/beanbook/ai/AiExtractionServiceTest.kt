@@ -1,0 +1,79 @@
+package eu.zeletrik.beanbook.ai
+
+import ai.koog.prompt.Prompt
+import ai.koog.prompt.message.Message
+import eu.zeletrik.beanbook.ai.internal.BeanExtractionRunner
+import eu.zeletrik.beanbook.beans.Process
+import eu.zeletrik.beanbook.beans.RoastLevel
+import kotlinx.coroutines.runBlocking
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Test
+
+/** Exercises [AiExtractionService] against a canned [BeanExtractionRunner] — no real LLM call. */
+class AiExtractionServiceTest {
+
+    private val image = byteArrayOf(1, 2, 3)
+
+    @Test
+    fun `successful extraction is returned`() {
+        val canned = BeanExtraction(
+            name = "Ethiopia Yirgacheffe",
+            roaster = "Acme Roasters",
+            origin = "Ethiopia",
+            roastLevel = RoastLevel.LIGHT,
+            process = Process.WASHED,
+            weightGrams = 250,
+            notes = "blueberry, floral",
+        )
+        val service = AiExtractionService(BeanExtractionRunner { canned })
+
+        val result = runBlocking { service.extractFromImage(image, "image/jpeg") }
+
+        assertNotNull(result)
+        assertEquals("Ethiopia Yirgacheffe", result?.name)
+        assertEquals(RoastLevel.LIGHT, result?.roastLevel)
+        assertEquals(250, result?.weightGrams)
+    }
+
+    @Test
+    fun `an all-null extraction is treated as no result`() {
+        val service = AiExtractionService(BeanExtractionRunner { BeanExtraction() })
+
+        val result = runBlocking { service.extractFromImage(image, "image/png") }
+
+        assertNull(result, "An empty extraction must degrade to null so the form stays as-is")
+    }
+
+    @Test
+    fun `a null from the runner degrades to null`() {
+        val service = AiExtractionService(BeanExtractionRunner { null })
+
+        assertNull(runBlocking { service.extractFromImage(image, "image/png") })
+    }
+
+    @Test
+    fun `a failure in the runner falls back to null instead of throwing`() {
+        val service = AiExtractionService(BeanExtractionRunner { error("LLM unavailable") })
+
+        assertNull(runBlocking { service.extractFromImage(image, "image/webp") })
+    }
+
+    @Test
+    fun `the built prompt carries a user message for the photo`() {
+        var captured: Prompt? = null
+        val service = AiExtractionService(
+            BeanExtractionRunner { prompt -> captured = prompt; BeanExtraction(name = "X") },
+        )
+
+        runBlocking { service.extractFromImage(image, "image/jpeg") }
+
+        assertNotNull(captured)
+        assertTrue(
+            captured!!.messages.any { it is Message.User },
+            "The image prompt must include a user message",
+        )
+    }
+}

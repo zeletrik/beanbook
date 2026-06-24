@@ -19,6 +19,7 @@ import com.vaadin.flow.component.tabs.TabsVariant
 import com.vaadin.flow.component.textfield.TextField
 import com.vaadin.flow.data.value.ValueChangeMode
 import com.vaadin.flow.router.Route
+import eu.zeletrik.beanbook.ai.AiExtractionService
 import eu.zeletrik.beanbook.analytics.AnalyticsService
 import eu.zeletrik.beanbook.backup.ExportService
 import eu.zeletrik.beanbook.backup.ImportService
@@ -42,6 +43,9 @@ class MainView(
     private val importService: ImportService,
     private val preferencesService: PreferencesService,
     private val wishlistService: WishlistService,
+    // Nullable (Kotlin treats it as a non-required dependency): present only when the AI feature is
+    // enabled, so the Add/Edit forms gain "Auto-fill from photo"; absent → the action is hidden.
+    private val aiExtractionService: AiExtractionService? = null,
 ) : VerticalLayout() {
 
     internal val cardsLayout = Div().apply {
@@ -130,6 +134,7 @@ class MainView(
     internal val addFormContent = PurchaseFormContent(
         onSave = { bean: PurchaseFormBean, id: UUID? -> handleFormSave(bean, id); navigateTo(AppTab.PURCHASES) },
         getAllTags = { beanPurchaseService.allTags() },
+        aiExtractionService = aiExtractionService,
     )
 
     /** Edit/create form; references [detailView] via lambdas, so the cycle is broken by initialising it in [init]. */
@@ -163,6 +168,7 @@ class MainView(
                 }
             },
             getAllTags = { beanPurchaseService.allTags() },
+            aiExtractionService = aiExtractionService,
         )
         detailView = PurchaseDetailView(
             onBack = { hideDetail() },

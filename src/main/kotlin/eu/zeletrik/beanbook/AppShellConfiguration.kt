@@ -52,6 +52,14 @@ class AppShellConfiguration : AppShellConfigurator {
               font-variant-numeric: tabular-nums;
             }
 
+            /* AI-suggested fields (auto-fill from photo): a subtle left accent on the field host so the
+               user knows what to double-check. Host-level box-shadow needs no shadow-DOM piercing and
+               works across every Lumo input type. The class is removed as soon as the user edits. */
+            .ai-suggested {
+              border-radius: 2px;
+              box-shadow: -3px 0 0 0 var(--lumo-primary-color-50pct);
+            }
+
             /* Light mode — Almond Hearth */
             :root {
               --lumo-primary-color: #EED3BA;

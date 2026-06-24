@@ -1,6 +1,9 @@
 package eu.zeletrik.beanbook.beans
 
-/** Intended brewing/roast profile of a coffee bean. */
+import kotlinx.serialization.Serializable
+
+/** Intended brewing/roast profile of a coffee bean. `@Serializable` so the `ai` module can use it in LLM-extracted DTOs. */
+@Serializable
 enum class RoastProfile {
     ESPRESSO, FILTER, OMNI
 }

@@ -1,6 +1,7 @@
 package eu.zeletrik.beanbook.ui
 
 import com.vaadin.flow.component.dialog.Dialog
+import eu.zeletrik.beanbook.ai.AiExtractionService
 import eu.zeletrik.beanbook.beans.BeanPurchase
 import java.util.UUID
 
@@ -8,12 +9,14 @@ import java.util.UUID
 class PurchaseForm(
     onSave: (bean: PurchaseFormBean, existingId: UUID?) -> Unit,
     getAllTags: () -> Set<String> = { emptySet() },
+    aiExtractionService: AiExtractionService? = null,
 ) : Dialog() {
 
     private val content = PurchaseFormContent(
         onSave = { bean, id -> onSave(bean, id); close() },
         onCancel = { close() },
         getAllTags = getAllTags,
+        aiExtractionService = aiExtractionService,
     )
 
     /** Exposes the underlying [content] fields for tests. */
@@ -32,6 +35,7 @@ class PurchaseForm(
     internal val grindSettingsField get() = content.grindSettingsField
     internal val saveButton get() = content.saveButton
     internal val uploadComponent get() = content.uploadComponent
+    internal val autoFillButton get() = content.autoFillButton
     internal var pendingImageData: ByteArray?
         get() = content.pendingImageData
         set(v) { content.pendingImageData = v }
