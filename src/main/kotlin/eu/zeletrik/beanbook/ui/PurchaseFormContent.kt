@@ -1,5 +1,6 @@
 package eu.zeletrik.beanbook.ui
 
+import com.vaadin.flow.component.Component
 import com.vaadin.flow.component.HasStyle
 import com.vaadin.flow.component.HasValue
 import com.vaadin.flow.component.button.Button
@@ -128,6 +129,14 @@ class PurchaseFormContent(
         Button("Auto-fill from photo", Icon(VaadinIcon.MAGIC)) { autoFillFromPhoto() }.apply {
             setId("ai-autofill-btn")
             isEnabled = false
+            addThemeVariants(ButtonVariant.LUMO_TERTIARY)
+        }
+    }
+
+    /** "Auto-fill from link" action; created only when the AI feature is on. Reads the Link field's URL. */
+    internal val autoFillFromLinkButton: Button? = aiExtractionService?.let {
+        Button("Auto-fill from link", Icon(VaadinIcon.MAGIC)) { autoFillFromLink() }.apply {
+            setId("ai-autofill-link-btn")
             addThemeVariants(ButtonVariant.LUMO_TERTIARY)
         }
     }
@@ -263,9 +272,14 @@ class PurchaseFormContent(
             HorizontalLayout(saveButton)
         }
 
+        // The Link field gains an "Auto-fill from link" action when AI is on; otherwise it stands alone.
+        val linkSection: Component = autoFillFromLinkButton?.let {
+            VerticalLayout(linkField, it).apply { isPadding = false; isSpacing = false; width = "100%" }
+        } ?: linkField
+
         // Photo leads the form: uploading the bag is the natural first step and — when AI is enabled —
         // powers "Auto-fill from photo", so it sits up front rather than trailing as an afterthought.
-        add(photoDetails, essentials, linkField, tastingDetails, trackingDetails, buttons)
+        add(photoDetails, essentials, linkSection, tastingDetails, trackingDetails, buttons)
     }
 
     private fun showUploadError(message: String) {
@@ -297,6 +311,26 @@ class PurchaseFormContent(
             NotificationHelper.success("Filled in from the photo — please review the fields")
         } else {
             NotificationHelper.error("Couldn't read that photo — please fill it in manually")
+        }
+    }
+
+    /**
+     * Fetches the URL in the Link field, extracts bean fields, and fills blanks. Runs synchronously like
+     * the photo path; [AiExtractionService] maps every failure to `null`.
+     */
+    private fun autoFillFromLink() {
+        val service = aiExtractionService ?: return
+        val url = linkField.value.trim()
+        if (url.isBlank()) {
+            NotificationHelper.error("Enter a link first")
+            return
+        }
+        val extraction = runBlocking { service.extractFromUrl(url) }
+        if (extraction != null) {
+            applyExtraction(extraction)
+            NotificationHelper.success("Filled in from the link — please review the fields")
+        } else {
+            NotificationHelper.error("Couldn't read that link — please fill it in manually")
         }
     }
 

@@ -4,6 +4,9 @@ import ai.koog.prompt.dsl.prompt
 import ai.koog.prompt.message.AttachmentContent
 import ai.koog.prompt.message.AttachmentSource
 import eu.zeletrik.beanbook.ai.internal.BeanExtractionRunner
+import eu.zeletrik.beanbook.ai.internal.PageFetcher
+import eu.zeletrik.beanbook.ai.internal.ProductPageFetcher
+import eu.zeletrik.beanbook.ai.internal.reduceHtml
 import kotlinx.coroutines.withTimeoutOrNull
 import org.slf4j.LoggerFactory
 import kotlin.coroutines.cancellation.CancellationException
@@ -11,7 +14,7 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
 /**
- * Extracts coffee-bean fields from a bag photo so the Add form can be pre-filled.
+ * Extracts coffee-bean fields from a bag photo or a product/roaster URL so the Add form can be pre-filled.
  *
  * Constructed by `AiConfiguration` only when the feature is enabled. Every failure mode — refusal,
  * unparseable output, network error, or timeout — degrades to `null` so the caller falls back to manual
@@ -19,6 +22,7 @@ import kotlin.time.Duration.Companion.seconds
  */
 class AiExtractionService internal constructor(
     private val runner: BeanExtractionRunner,
+    private val fetcher: PageFetcher = ProductPageFetcher(),
     private val timeout: Duration = DEFAULT_TIMEOUT,
 ) {
 
@@ -33,6 +37,24 @@ class AiExtractionService internal constructor(
         val result = guarded { runner.run(prompt) }
         return result?.takeUnless { it.isEmpty() }
     }
+
+    /**
+     * Fetches [url], reduces the page to text, and asks the model for the bean fields. Returns `null` if
+     * the page can't be fetched or nothing usable could be read.
+     */
+    suspend fun extractFromUrl(url: String): BeanExtraction? {
+        val html = fetcher.fetch(url) ?: return null
+        val pageText = reduceHtml(html)
+        if (pageText.isBlank()) return null
+        val result = guarded { runner.run(buildUrlPrompt(pageText)) }
+        return result?.takeUnless { it.isEmpty() }
+    }
+
+    private fun buildUrlPrompt(pageText: String) =
+        prompt("extract-bean-from-url") {
+            system(URL_SYSTEM_PROMPT)
+            user("$URL_USER_INSTRUCTION\n\n$pageText")
+        }
 
     private fun buildImagePrompt(imageBytes: ByteArray, mimeType: String) =
         prompt("extract-bean-from-photo") {
@@ -71,5 +93,13 @@ class AiExtractionService internal constructor(
                 "guess or infer. When a weight is given in ounces, convert it to grams (1 oz ≈ 28.35 g)."
 
         private const val USER_INSTRUCTION = "Extract the coffee-bean details from this bag photo."
+
+        private const val URL_SYSTEM_PROMPT =
+            "You extract structured details from the text of a coffee product or roaster web page. Use " +
+                "only what the text states; for anything not present, return null — never guess. When a " +
+                "weight is given in ounces, convert it to grams (1 oz ≈ 28.35 g)."
+
+        private const val URL_USER_INSTRUCTION =
+            "Extract the coffee-bean details from this product page text:"
     }
 }

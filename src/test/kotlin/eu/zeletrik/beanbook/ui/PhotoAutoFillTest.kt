@@ -32,7 +32,11 @@ class PhotoAutoFillTest {
         RecordedNotifications.reset()
     }
 
-    private fun stubService(result: BeanExtraction?) = AiExtractionService(BeanExtractionRunner { result })
+    // Stub the page fetcher too so extractFromUrl never touches the network in tests.
+    private fun stubService(result: BeanExtraction?) = AiExtractionService(
+        runner = BeanExtractionRunner { result },
+        fetcher = { "<html><body>coffee from somewhere</body></html>" },
+    )
 
     private fun formWith(service: AiExtractionService?): PurchaseFormContent {
         val form = PurchaseFormContent(onSave = { _, _ -> }, aiExtractionService = service)
@@ -43,8 +47,40 @@ class PhotoAutoFillTest {
 
     @Test
     fun `the action is hidden when the AI feature is off`() {
-        assertNull(PurchaseFormContent(onSave = { _, _ -> }).autoFillButton, "No button without the service")
+        val plain = PurchaseFormContent(onSave = { _, _ -> })
+        assertNull(plain.autoFillButton, "No photo button without the service")
+        assertNull(plain.autoFillFromLinkButton, "No link button without the service")
         assertNull(testMainView(testRepository()).addFormContent.autoFillButton, "MainView hides it too")
+    }
+
+    @Test
+    fun `clicking auto-fill from link applies the extraction`() {
+        val form = formWith(stubService(BeanExtraction(name = "Linked Bean", origin = "Peru")))
+        form.linkField.value = "https://roaster.example/linked-bean"
+
+        form.autoFillFromLinkButton!!.click()
+
+        assertEquals("Linked Bean", form.nameField.value)
+        assertEquals("Peru", form.originField.value)
+        assertTrue(form.nameField.hasClassName("ai-suggested"))
+        assertTrue(
+            RecordedNotifications.shown.any { (text, isError) -> !isError && text.contains("link") },
+            "A success toast should confirm the link auto-fill, got: ${RecordedNotifications.shown}",
+        )
+    }
+
+    @Test
+    fun `auto-fill from link with an empty link asks for one`() {
+        val form = formWith(stubService(BeanExtraction(name = "X")))
+        form.linkField.value = ""
+
+        form.autoFillFromLinkButton!!.click()
+
+        assertTrue(form.nameField.value.isBlank(), "Nothing should be filled without a link")
+        assertTrue(
+            RecordedNotifications.shown.any { (text, isError) -> isError && text.contains("link") },
+            "An error toast should prompt for a link, got: ${RecordedNotifications.shown}",
+        )
     }
 
     @Test
