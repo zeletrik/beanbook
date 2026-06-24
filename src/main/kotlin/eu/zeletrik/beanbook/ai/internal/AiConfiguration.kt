@@ -4,7 +4,6 @@ import ai.koog.prompt.executor.clients.openai.OpenAILLMClient
 import ai.koog.prompt.executor.clients.openai.OpenAIModels
 import ai.koog.prompt.executor.llms.MultiLLMPromptExecutor
 import ai.koog.prompt.executor.model.PromptExecutor
-import ai.koog.prompt.executor.model.PromptExecutorBuilder
 import ai.koog.prompt.executor.model.executeStructured
 import ai.koog.prompt.llm.LLMProvider
 import ai.koog.prompt.llm.LLModel
@@ -53,8 +52,9 @@ class AiConfiguration {
     }
 
     /** Maps the configured model name to a Koog [LLModel] constant, defaulting to GPT-4o. */
-    private fun resolveModel(name: String): LLModel = when (name.lowercase()) {
-        "gpt-4o-mini" -> OpenAIModels.Chat.GPT4oMini
-        else -> OpenAIModels.Chat.GPT4o
+    private fun resolveModel(model: AiProperties.OpenAi.Model): LLModel = when (model) {
+        AiProperties.OpenAi.Model.GPT4o -> OpenAIModels.Chat.GPT4o
+        AiProperties.OpenAi.Model.GPT4oMini -> OpenAIModels.Chat.GPT4oMini
+        AiProperties.OpenAi.Model.GPT5 -> OpenAIModels.Chat.GPT5
     }
 }

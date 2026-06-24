@@ -22,8 +22,10 @@ data class AiProperties(
         /** API key, injected from the `OPENAI_API_KEY` environment variable; `null`/blank when unset. */
         val apiKey: String? = null,
         /** Vision-capable model used for extraction. */
-        val model: String = "gpt-4o",
-    )
+        val model: Model = Model.GPT4o,
+    ) {
+        enum class Model { GPT4o, GPT4oMini, GPT5 }
+    }
 }
 
 /** Supported AI backends. Only [OPENAI] is wired today; [OLLAMA] is reserved for local inference. */

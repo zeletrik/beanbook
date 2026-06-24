@@ -11,13 +11,26 @@ install onto your phone's home screen like a native app.
 ## Features
 
 ### Bean log
+
 - Record purchases with name, roaster, origin, process, roast level, and roast profile (espresso / filter / omni)
 - Track whole-bag price and weight, purchase date, and roast date
 - Follow each bag's lifecycle: **sealed → open → finished** (derived from opened/finished dates)
 - Rate beans 1–5, attach brewing notes, grind settings, freeform tags, a product/roaster URL, and a bag photo
 - For omni beans, capture what the bag was actually brewed as (espresso or filter)
 
+### AI-assisted entry (optional, off by default)
+
+- **Auto-fill from a bag photo** — upload a photo of the bag and have the fields (name, roaster, origin,
+  roast level, process, roast profile, weight, roast date, tasting notes) read off it and pre-filled.
+- **Auto-fill from a link** — paste a product or roaster URL and pre-fill the same fields from the page.
+- You always confirm before saving: AI only fills **blank** fields, never overwrites what you typed, and
+  flags suggested values with a subtle accent that clears the moment you edit them.
+- **Off by default** and completely hidden unless enabled. Opt in with an OpenAI key (see
+  [*Configuration*](#ai-assisted-entry-opt-in)); a privacy-friendly local-model path (Ollama) is prepared
+  for a future release.
+
 ### Analytics
+
 - Total and average spend across your collection
 - Spend over time, zero-filled month by month so the timeline never collapses gaps
 - Spend and count broken down by bean, roaster, origin, brew method, and roast profile
@@ -25,14 +38,17 @@ install onto your phone's home screen like a native app.
 - Consumption pace (days from opened to finished) and a projected monthly cost
 
 ### Wishlist
+
 - Keep a list of beans to try, with roaster, origin, notes, and a link
 
 ### Backup & data
+
 - Export your full library (purchases + wishlist) to JSON
 - Import JSON backups, with tolerant parsing: legacy fields are migrated, duplicate ids are collapsed,
   and unparseable records are skipped and counted rather than failing the whole import
 
 ### Progressive Web App
+
 - Mobile-first UI with light and dark themes
 - Installable to the home screen via a web app manifest (standalone display, app shortcut to "Add Purchase")
 - Service worker provides an offline fallback so the app shell still loads without a connection
@@ -40,18 +56,19 @@ install onto your phone's home screen like a native app.
 
 ## Tech stack
 
-| Layer        | Technology                                |
-| ------------ | ----------------------------------------- |
-| Language     | Kotlin 2.4.0 (JVM toolchain 25)           |
-| Framework    | Spring Boot 4.1.0                         |
-| Modularity   | Spring Modulith 2.1.0                     |
-| UI           | Vaadin Flow 25.1.8 (Lumo theme)           |
-| Persistence  | Spring Data JDBC + SQLite (xerial 3.53.2.0) |
-| Migrations   | Liquibase                                 |
-| JSON         | Jackson (`tools.jackson` kotlin module)   |
-| Build        | Gradle (Kotlin DSL), version catalog      |
-| Static checks| Detekt 2.0.0-alpha.3                      |
-| Testing      | JUnit 5, Karibu Testing 2.7.0, Spring Modulith test |
+| Layer         | Technology                                          |
+|---------------|-----------------------------------------------------|
+| Language      | Kotlin 2.4.0 (JVM toolchain 25)                     |
+| Framework     | Spring Boot 4.1.0                                   |
+| Modularity    | Spring Modulith 2.1.0                               |
+| UI            | Vaadin Flow 25.1.8 (Lumo theme)                     |
+| Persistence   | Spring Data JDBC + SQLite (xerial 3.53.2.0)         |
+| Migrations    | Liquibase                                           |
+| JSON          | Jackson (`tools.jackson` kotlin module)             |
+| Build         | Gradle (Kotlin DSL), version catalog                |
+| AI (optional) | Koog 1.0 (JetBrains) + OpenAI                       |
+| Static checks | Detekt 2.0.0-alpha.3                                |
+| Testing       | JUnit 5, Karibu Testing 2.7.0, Spring Modulith test |
 
 ## Architecture
 
@@ -64,6 +81,9 @@ top-level package under `eu.zeletrik.beanbook` is an application module with a c
 - **`wishlist`** — beans you plan to buy: `WishlistItem` and `WishlistService`.
 - **`backup`** — JSON `ExportService` and `ImportService` over the bean and wishlist modules.
 - **`preferences`** — user preferences such as the currency symbol.
+- **`ai`** — optional, feature-flagged AI-assisted entry: extracts bean fields from a bag photo or a
+  product URL to pre-fill the Add form. Built on [Koog](https://github.com/JetBrains/koog) with OpenAI;
+  created only when the feature is enabled.
 - **`ui`** — the Vaadin views and components (the presentation layer).
 
 **Internal-package convention:** types that are implementation details live in an `internal`
@@ -86,8 +106,8 @@ explicit and verifiable.
 ./gradlew bootRun
 ```
 
-The app starts on [http://localhost:8001](http://localhost:8001). In dev it binds to loopback only and
-writes its database to `./beanbook.db` in the working directory.
+The app starts on [http://localhost:8001](http://localhost:8001). Defaults to write its database to `./beanbook.db` in
+the working directory.
 
 ### Run tests and static analysis
 
@@ -109,15 +129,31 @@ This runs the Vaadin production frontend build and produces an executable JAR un
 Configuration follows Spring Boot conventions, so any property can be overridden with an environment
 variable.
 
-| Variable                | Purpose                                  | Default                                          |
-| ----------------------- | ---------------------------------------- | ------------------------------------------------ |
-| `SERVER_ADDRESS`        | Network interface to bind                | loopback in dev; `0.0.0.0` in the Docker image   |
-| `SPRING_DATASOURCE_URL` | JDBC URL of the SQLite database file     | `jdbc:sqlite:./beanbook.db?journal_mode=WAL`     |
+| Variable                   | Purpose                                           | Default         |
+|----------------------------|---------------------------------------------------|-----------------|
+| `DATASOURCE_PATH`          | Path where the datasource can be found            | `./beanbook.db` |
+| `BEANBOOK_AI_ENABLED`      | Turn on AI-assisted entry (photo / URL auto-fill) | `false`         |
+| `OPENAI_API_KEY`           | OpenAI API key; required when AI is enabled       | _(unset)_       |
+| `BEANBOOK_AI_OPENAI_MODEL` | OpenAI model used for extraction                  | `GPT4o`         |
 
 The server listens on port **8001**.
 
 **Currency preference.** The currency symbol shown throughout the UI is a user preference stored in the
 database (not an environment variable). It defaults to `€` and can be changed in the app's settings.
+
+### AI-assisted entry (opt-in)
+
+Off by default. To enable, set `BEANBOOK_AI_ENABLED=true` and provide `OPENAI_API_KEY` (read from the
+environment only — never baked into the image or committed). Optionally set `BEANBOOK_AI_OPENAI_MODEL`
+(`GPT4o` by default, `GPT4oMini` for lower cost, or `GPT5` for more capabilities).
+
+- **Privacy** — when enabled, the bag photo or the fetched page content is sent to OpenAI's API for
+  extraction. With the feature off (the default), nothing leaves the box. A local-model (Ollama) path is
+  prepared for a future release to keep everything on-device.
+- **Cost** — roughly a few cents per photo extraction on GPT‑4o (less on `gpt-4o-mini`); URL extraction
+  cost varies with page size. You are billed by OpenAI directly via your own key.
+- **You stay in control** — AI only pre-fills the Add form for you to review and save; it never writes a
+  purchase on its own, and never overwrites a field you've already filled in.
 
 ## Docker / homelab deployment
 
@@ -150,6 +186,8 @@ on a named `beanbook-data` volume.
 src/main/kotlin/eu/zeletrik/beanbook
 ├── BeanbookApplication.kt        # Spring Boot entry point
 ├── AppShellConfiguration.kt      # PWA shell: manifest, service worker, theme
+├── ai/                           # optional AI-assisted entry (photo / URL → form)
+│   └── internal/                 # Koog wiring, page fetch, HTML reduce (module-private)
 ├── analytics/                    # spend & consumption aggregation
 ├── backup/                       # JSON export / import
 ├── beans/                        # core domain

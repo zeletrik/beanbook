@@ -33,7 +33,7 @@ vaadin:
 beanbook:
   ai:
     enabled: ${BEANBOOK_AI_ENABLED:false}
-    provider: openai
+    provider: OPENAI
     openai:
       api-key: ${OPENAI_API_KEY:}
-      model: gpt-4o
+      model: GPT4o
