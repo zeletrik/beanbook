@@ -131,10 +131,13 @@ variable.
 
 | Variable                   | Purpose                                           | Default         |
 |----------------------------|---------------------------------------------------|-----------------|
-| `DATASOURCE_PATH`          | Path where the datasource can be found            | `./beanbook.db` |
-| `BEANBOOK_AI_ENABLED`      | Turn on AI-assisted entry (photo / URL auto-fill) | `false`         |
-| `OPENAI_API_KEY`           | OpenAI API key; required when AI is enabled       | _(unset)_       |
-| `BEANBOOK_AI_OPENAI_MODEL` | OpenAI model used for extraction                  | `GPT4o`         |
+| `DATASOURCE_PATH`          | Path where the datasource can be found            | `./beanbook.db`          |
+| `BEANBOOK_AI_ENABLED`      | Turn on AI-assisted entry (photo / URL auto-fill) | `false`                  |
+| `BEANBOOK_AI_PROVIDER`     | AI backend: `OPENAI` (cloud) or `OLLAMA` (local)  | `OPENAI`                 |
+| `OPENAI_API_KEY`           | OpenAI API key; required when provider is `OPENAI` | _(unset)_               |
+| `BEANBOOK_AI_OPENAI_MODEL` | OpenAI model: `GPT4o`, `GPT4oMini`, or `GPT5`      | `GPT4o`                  |
+| `OLLAMA_BASE_URL`          | Ollama server URL; used when provider is `OLLAMA`  | `http://localhost:11434` |
+| `BEANBOOK_AI_OLLAMA_MODEL` | Ollama model: `GRANITE_VISION` or `LLAMA_3_2`      | `GRANITE_VISION`         |
 
 The server listens on port **8001**.
 
@@ -143,15 +146,20 @@ database (not an environment variable). It defaults to `€` and can be changed 
 
 ### AI-assisted entry (opt-in)
 
-Off by default. To enable, set `BEANBOOK_AI_ENABLED=true` and provide `OPENAI_API_KEY` (read from the
-environment only — never baked into the image or committed). Optionally set `BEANBOOK_AI_OPENAI_MODEL`
-(`GPT4o` by default, `GPT4oMini` for lower cost, or `GPT5` for more capabilities).
+Off by default. Set `BEANBOOK_AI_ENABLED=true`, then pick a provider with `BEANBOOK_AI_PROVIDER`:
 
-- **Privacy** — when enabled, the bag photo or the fetched page content is sent to OpenAI's API for
-  extraction. With the feature off (the default), nothing leaves the box. A local-model (Ollama) path is
-  prepared for a future release to keep everything on-device.
-- **Cost** — roughly a few cents per photo extraction on GPT‑4o (less on `gpt-4o-mini`); URL extraction
-  cost varies with page size. You are billed by OpenAI directly via your own key.
+- **`OPENAI` (cloud, default)** — provide `OPENAI_API_KEY` (read from the environment only — never baked
+  into the image or committed). Optionally set `BEANBOOK_AI_OPENAI_MODEL` (`GPT4o` default, `GPT4oMini`
+  for lower cost, `GPT5` for more capability).
+- **`OLLAMA` (local, on-box)** — no key needed; point `OLLAMA_BASE_URL` at your Ollama server
+  (`http://localhost:11434` by default) and choose `BEANBOOK_AI_OLLAMA_MODEL`. The photo path needs a
+  **multimodal** model: `GRANITE_VISION` (default, `granite3.2-vision`) handles photos and URLs;
+  `LLAMA_3_2` is text-only (URL path). Pull the model in Ollama first (e.g. `ollama pull granite3.2-vision`).
+
+- **Privacy** — with `OPENAI`, the bag photo or fetched page content is sent to OpenAI's API. With
+  `OLLAMA`, everything stays **on your box**. With the feature off (the default), nothing leaves the box.
+- **Cost** — OpenAI: roughly a few cents per photo extraction on GPT‑4o (less on `GPT4oMini`), billed to
+  your own key; URL cost varies with page size. Ollama: **zero marginal cost** (your hardware).
 - **You stay in control** — AI only pre-fills the Add form for you to review and save; it never writes a
   purchase on its own, and never overwrites a field you've already filled in.
 

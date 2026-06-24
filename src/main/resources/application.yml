@@ -28,12 +28,15 @@ vaadin:
 
 ---
 # AI-assisted bean entry — off by default (see docs/ai-bean-entry-scope.md).
-# Enable with BEANBOOK_AI_ENABLED=true and supply OPENAI_API_KEY via the environment;
-# the key is never baked into the image or committed.
+# Enable with BEANBOOK_AI_ENABLED=true. With provider=OPENAI supply OPENAI_API_KEY via the environment
+# (never baked into the image); with provider=OLLAMA point base-url at your local Ollama server (no key).
 beanbook:
   ai:
     enabled: ${BEANBOOK_AI_ENABLED:false}
-    provider: OPENAI
+    provider: ${BEANBOOK_AI_PROVIDER:OPENAI}
     openai:
       api-key: ${OPENAI_API_KEY:}
       model: GPT4o
+    ollama:
+      base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
+      model: GRANITE_VISION
