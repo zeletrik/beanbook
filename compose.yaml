@@ -1,4 +1,6 @@
-# Example Docker compose file to run the service
+# Example Docker compose file to run the service.
+# This variant enables on-box AI-assisted entry via a local Ollama server — no API key, and no data
+# leaves the host. To run without AI, drop the BEANBOOK_AI_* env vars and the ollama / ollama-pull services.
 services:
   beanbook:
     image: zeletrik/beanbook:latest
@@ -6,8 +8,50 @@ services:
       - "8001:8001"
     environment:
       - DATASOURCE_PATH=/data/beanbook.db
+      # AI-assisted entry (photo / URL auto-fill) backed by the local Ollama service below.
+      - BEANBOOK_AI_ENABLED=true
+      - BEANBOOK_AI_PROVIDER=OLLAMA
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - BEANBOOK_AI_OLLAMA_MODEL=GRANITE_VISION
     volumes:
       - beanbook-data:/data
+    depends_on:
+      ollama:
+        condition: service_started
+
+  # Local LLM server for AI-assisted entry.
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-models:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    # GPU acceleration (NVIDIA) — uncomment to use a GPU; otherwise Ollama runs on CPU:
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+
+  # One-shot: pull the multimodal model into the Ollama server on first run, then exit.
+  # The first pull downloads several GB; AI-assisted entry works once it completes.
+  ollama-pull:
+    image: ollama/ollama:latest
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+    entrypoint: ["/bin/sh", "-c", "ollama pull granite3.2-vision"]
+    restart: "no"
 
 volumes:
   beanbook-data:
+  ollama-models:

@@ -6,6 +6,7 @@ spring-boot = "4.1.0"
 spring-dependency-management = "1.1.7"
 vaadin = "25.1.8"
 spring-modulith = "2.1.0"
+koog = "1.0.0"
 
 [libraries]
 spring-boot-starter-webmvc = { module = "org.springframework.boot:spring-boot-starter-webmvc" }
@@ -25,11 +26,14 @@ karibu-testing = { module = "com.github.mvysny.kaributesting:karibu-testing-v24"
 sqlite-jdbc = { module = "org.xerial:sqlite-jdbc", version.ref = "sqlite-jdbc" }
 spring-boot-starter-data-jdbc = { module = "org.springframework.boot:spring-boot-starter-data-jdbc" }
 spring-boot-starter-liquibase = { module = "org.springframework.boot:spring-boot-starter-liquibase" }
+koog-agents-jvm = { group = "ai.koog", name = "koog-agents-jvm", version.ref = "koog" }
+koog-openai-client = { group = "ai.koog", name = "prompt-executor-openai-client", version.ref = "koog" }
 
 [plugins]
 detekt = { id = "dev.detekt", version.ref = "detekt" }
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotlin-spring = { id = "org.jetbrains.kotlin.plugin.spring", version.ref = "kotlin" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 spring-boot = { id = "org.springframework.boot", version.ref = "spring-boot" }
 spring-dependency-management = { id = "io.spring.dependency-management", version.ref = "spring-dependency-management" }
 vaadin = { id = "com.vaadin", version.ref = "vaadin" }

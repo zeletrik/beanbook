@@ -6,6 +6,7 @@ plugins {
     alias(libs.plugins.detekt)
     alias(libs.plugins.kotlin.jvm)
     alias(libs.plugins.kotlin.spring)
+    alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.spring.boot)
     alias(libs.plugins.spring.dependency.management)
     alias(libs.plugins.vaadin)
@@ -27,6 +28,10 @@ dependencies {
     implementation(libs.spring.boot.starter.data.jdbc)
     runtimeOnly(libs.sqlite.jdbc)
     implementation(libs.spring.boot.starter.liquibase)
+
+    // AI (feature-flagged, off by default)
+    implementation(libs.koog.agents.jvm)
+    implementation(libs.koog.openai.client)
 
     // Test
     testImplementation(libs.spring.boot.starter.webmvc.test)

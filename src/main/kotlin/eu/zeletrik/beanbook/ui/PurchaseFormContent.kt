@@ -1,5 +1,8 @@
 package eu.zeletrik.beanbook.ui
 
+import com.vaadin.flow.component.Component
+import com.vaadin.flow.component.HasStyle
+import com.vaadin.flow.component.HasValue
 import com.vaadin.flow.component.button.Button
 import com.vaadin.flow.component.button.ButtonVariant
 import com.vaadin.flow.component.combobox.MultiSelectComboBox
@@ -9,6 +12,8 @@ import com.vaadin.flow.component.formlayout.FormLayout
 import com.vaadin.flow.component.html.H4
 import com.vaadin.flow.component.html.Image
 import com.vaadin.flow.component.html.Span
+import com.vaadin.flow.component.icon.Icon
+import com.vaadin.flow.component.icon.VaadinIcon
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout
 import com.vaadin.flow.component.orderedlayout.VerticalLayout
 import com.vaadin.flow.component.select.Select
@@ -19,12 +24,16 @@ import com.vaadin.flow.component.textfield.TextField
 import com.vaadin.flow.component.upload.Upload
 import com.vaadin.flow.component.upload.receivers.MemoryBuffer
 import com.vaadin.flow.data.binder.Binder
+import eu.zeletrik.beanbook.ai.AiExtractionService
+import eu.zeletrik.beanbook.ai.BeanExtraction
 import eu.zeletrik.beanbook.beans.BeanPurchase
 import eu.zeletrik.beanbook.beans.Process
 import eu.zeletrik.beanbook.beans.RoastLevel
 import eu.zeletrik.beanbook.beans.RoastProfile
+import kotlinx.coroutines.runBlocking
 import java.io.ByteArrayInputStream
 import java.math.BigDecimal
+import java.time.LocalDate
 import java.util.UUID
 
 private const val MAX_IMAGE_BYTES = 5_242_880
@@ -34,6 +43,8 @@ private val ALLOWED_TYPES = setOf("image/jpeg", "image/png", "image/webp")
 private const val MAX_TAG_LENGTH = 20
 private const val MAX_TAG_COUNT = 10
 private const val REQUIRED = "Required"
+private const val AI_CLASS = "ai-suggested"
+private const val DEFAULT_IMAGE_MIME = "image/jpeg"
 
 /**
  * Reusable form body for creating, editing, or re-purchasing a [BeanPurchase].
@@ -45,6 +56,8 @@ class PurchaseFormContent(
     private val onSave: (bean: PurchaseFormBean, existingId: UUID?) -> Unit,
     private val onCancel: (() -> Unit)? = null,
     private val getAllTags: () -> Set<String> = { emptySet() },
+    /** When present, enables "Auto-fill from photo"; null hides the action entirely (feature off). */
+    private val aiExtractionService: AiExtractionService? = null,
 ) : VerticalLayout() {
 
     internal val nameField = TextField("Name").also { it.setId("field-name"); it.isRequiredIndicatorVisible = true }
@@ -106,6 +119,27 @@ class PurchaseFormContent(
 
     // Image upload
     internal var pendingImageData: ByteArray? = null
+    internal var pendingImageMimeType: String? = null
+
+    /**
+     * "Auto-fill from photo" action; created only when [aiExtractionService] is present so the UI hides
+     * cleanly when the AI feature is off. Enabled once a valid image is staged.
+     */
+    internal val autoFillButton: Button? = aiExtractionService?.let {
+        Button("Auto-fill from photo", Icon(VaadinIcon.MAGIC)) { autoFillFromPhoto() }.apply {
+            setId("ai-autofill-btn")
+            isEnabled = false
+            addThemeVariants(ButtonVariant.LUMO_TERTIARY)
+        }
+    }
+
+    /** "Auto-fill from link" action; created only when the AI feature is on. Reads the Link field's URL. */
+    internal val autoFillFromLinkButton: Button? = aiExtractionService?.let {
+        Button("Auto-fill from link", Icon(VaadinIcon.MAGIC)) { autoFillFromLink() }.apply {
+            setId("ai-autofill-link-btn")
+            addThemeVariants(ButtonVariant.LUMO_TERTIARY)
+        }
+    }
     private val uploadHint = Span("JPEG, PNG, or WebP · max 5 MB").also {
         it.style["font-size"] = "var(--lumo-font-size-xs)"
         it.style["color"] = "var(--lumo-secondary-text-color)"
@@ -158,7 +192,12 @@ class PurchaseFormContent(
     internal val photoDetails = Details(
         "Photo",
         VerticalLayout(existingImageLabel, currentImageDisplay, uploadComponent, uploadHint, uploadErrorLabel)
-            .apply { isPadding = false; isSpacing = false },
+            .apply {
+                isPadding = false
+                isSpacing = false
+                // Only present when the AI feature is enabled; sits below the upload as a follow-up action.
+                autoFillButton?.let { add(it) }
+            },
     ).apply { setId("section-photo") }
 
     init {
@@ -168,13 +207,18 @@ class PurchaseFormContent(
             val data = buffer.inputStream.readBytes()
             val mimeType = event.mimeType ?: ""
             when {
-                mimeType !in ALLOWED_TYPES -> { pendingImageData = null; showUploadError("Invalid format. Allowed: JPEG, PNG, WebP.") }
-                data.size > MAX_IMAGE_BYTES -> { pendingImageData = null; showUploadError("File exceeds the 5 MB maximum.") }
-                else -> { pendingImageData = data; uploadErrorLabel.isVisible = false }
+                mimeType !in ALLOWED_TYPES -> { clearStagedImage(); showUploadError("Invalid format. Allowed: JPEG, PNG, WebP.") }
+                data.size > MAX_IMAGE_BYTES -> { clearStagedImage(); showUploadError("File exceeds the 5 MB maximum.") }
+                else -> {
+                    pendingImageData = data
+                    pendingImageMimeType = mimeType
+                    uploadErrorLabel.isVisible = false
+                    autoFillButton?.isEnabled = true
+                }
             }
         }
         uploadComponent.addFileRejectedListener { event ->
-            pendingImageData = null
+            clearStagedImage()
             showUploadError(event.errorMessage)
         }
         // No `capture` attribute — iOS shows its native picker ("Take Photo", "Photo Library", "Files")
@@ -202,6 +246,18 @@ class PurchaseFormContent(
 
         configureBinder()
 
+        // An AI-suggested field stops being "suggested" the moment the user edits it themselves
+        // (client-originated change), so the accent only flags values the user hasn't yet vetted.
+        if (aiExtractionService != null) {
+            listOf(nameField, roasterField, originField, notesField).forEach { it.clearMarkOnEdit() }
+            roastLevelField.clearMarkOnEdit()
+            roastProfileField.clearMarkOnEdit()
+            processField.clearMarkOnEdit()
+            weightField.clearMarkOnEdit()
+            priceField.clearMarkOnEdit()
+            roastDateField.clearMarkOnEdit()
+        }
+
         // Essentials are always visible; everything optional is tucked into collapsible sections so
         // adding a bean isn't a 16-field wall. Required fields are never hidden behind a collapse.
         val essentials = FormLayout(
@@ -217,13 +273,134 @@ class PurchaseFormContent(
             HorizontalLayout(saveButton)
         }
 
-        add(essentials, linkField, tastingDetails, trackingDetails, photoDetails, buttons)
+        // The Link field gains an "Auto-fill from link" action when AI is on; otherwise it stands alone.
+        val linkSection: Component = autoFillFromLinkButton?.let {
+            VerticalLayout(linkField, it).apply { isPadding = false; isSpacing = false; width = "100%" }
+        } ?: linkField
+
+        // Photo leads the form: uploading the bag is the natural first step and — when AI is enabled —
+        // powers "Auto-fill from photo", so it sits up front rather than trailing as an afterthought.
+        add(photoDetails, essentials, linkSection, tastingDetails, trackingDetails, buttons)
     }
 
     private fun showUploadError(message: String) {
         uploadErrorLabel.text = message
         uploadErrorLabel.isVisible = true
     }
+
+    private fun clearStagedImage() {
+        pendingImageData = null
+        pendingImageMimeType = null
+        autoFillButton?.isEnabled = false
+    }
+
+    /**
+     * Sends the staged photo to the model and fills in blank fields. Runs synchronously (the call is
+     * short and single-user); the browser shows Vaadin's built-in progress indicator. [AiExtractionService]
+     * already maps every failure to `null`, so a miss simply asks the user to fill it in manually.
+     */
+    private fun autoFillFromPhoto() {
+        val service = aiExtractionService ?: return
+        val bytes = pendingImageData
+        if (bytes == null) {
+            NotificationHelper.error("Upload a photo first")
+            return
+        }
+        val extraction = runBlocking { service.extractFromImage(bytes, pendingImageMimeType ?: DEFAULT_IMAGE_MIME) }
+        if (extraction != null) {
+            applyExtraction(extraction)
+            NotificationHelper.success("Filled in from the photo — please review the fields")
+        } else {
+            NotificationHelper.error("Couldn't read that photo — please fill it in manually")
+        }
+    }
+
+    /**
+     * Fetches the URL in the Link field, extracts bean fields, and fills blanks. Runs synchronously like
+     * the photo path; [AiExtractionService] maps every failure to `null`.
+     */
+    private fun autoFillFromLink() {
+        val service = aiExtractionService ?: return
+        val url = linkField.value.trim()
+        if (url.isBlank()) {
+            NotificationHelper.error("Enter a link first")
+            return
+        }
+        val extraction = runBlocking { service.extractFromUrl(url) }
+        if (extraction != null) {
+            applyExtraction(extraction)
+            NotificationHelper.success("Filled in from the link — please review the fields")
+        } else {
+            NotificationHelper.error("Couldn't read that link — please fill it in manually")
+        }
+    }
+
+    /**
+     * Pre-fills only currently-blank fields from [extraction] (never overwrites what the user typed) and
+     * flags each filled field as AI-suggested. The roast date is filled when the bag prints one; the
+     * purchase date, rating, tags, and the image itself are intentionally left to the user.
+     */
+    internal fun applyExtraction(extraction: BeanExtraction) {
+        fillTextIfBlank(nameField, extraction.name)
+        fillTextIfBlank(roasterField, extraction.roaster)
+        fillTextIfBlank(originField, extraction.origin)
+        if (roastLevelField.value == null && extraction.roastLevel != null) {
+            roastLevelField.value = extraction.roastLevel
+            markAi(roastLevelField)
+        }
+        // The roast-profile Select is never blank (defaults to OMNI), so "fill only blanks" can't apply.
+        // Override only while it's still at the OMNI default — a profile the user already chose is kept.
+        if (roastProfileField.value == RoastProfile.OMNI &&
+            extraction.roastProfile != null && extraction.roastProfile != RoastProfile.OMNI
+        ) {
+            roastProfileField.value = extraction.roastProfile
+            markAi(roastProfileField)
+        }
+        if (processField.value == null && extraction.process != null) {
+            processField.value = extraction.process
+            markAi(processField)
+        }
+        val roastDate = parseIsoDate(extraction.roastDate)
+        if (roastDateField.value == null && roastDate != null) {
+            roastDateField.value = roastDate
+            markAi(roastDateField)
+        }
+        if (weightField.value == null && extraction.weightGrams != null) {
+            weightField.value = extraction.weightGrams
+            markAi(weightField)
+        }
+        if (priceField.value == null && extraction.price != null) {
+            priceField.value = BigDecimal.valueOf(extraction.price)
+            markAi(priceField)
+        }
+        if (notesField.value.isBlank() && !extraction.notes.isNullOrBlank()) {
+            notesField.value = extraction.notes
+            markAi(notesField)
+            tastingDetails.isOpened = true
+        }
+    }
+
+    private fun fillTextIfBlank(field: TextField, value: String?) {
+        if (field.value.isBlank() && !value.isNullOrBlank()) {
+            field.value = value
+            markAi(field)
+        }
+    }
+
+    /** Parses an ISO-8601 (yyyy-MM-dd) date, returning null for absent or malformed values. */
+    private fun parseIsoDate(value: String?): LocalDate? =
+        value?.trim()?.takeIf { it.isNotEmpty() }?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+
+    private fun markAi(field: HasStyle) = field.addClassName(AI_CLASS)
+
+    /** Drops the AI-suggested accent the first time the user changes the value themselves. */
+    private fun <C> C.clearMarkOnEdit() where C : HasValue<*, *>, C : HasStyle =
+        addValueChangeListener { if (it.isFromClient) removeClassName(AI_CLASS) }
+
+    private fun clearAiMarks() = listOf<HasStyle>(
+        nameField, roasterField, originField, notesField,
+        roastLevelField, roastProfileField, processField, weightField, priceField, roastDateField,
+    ).forEach { it.removeClassName(AI_CLASS) }
 
     private fun configureBinder() {
         binder.forField(nameField)
@@ -290,7 +467,8 @@ class PurchaseFormContent(
 
     fun openForCreate() {
         editingId = null
-        pendingImageData = null
+        clearStagedImage()
+        clearAiMarks()
         binder.bean = PurchaseFormBean()
         tagsField.setItems(getAllTags())
         clearUploadState()
@@ -298,17 +476,19 @@ class PurchaseFormContent(
         existingImageLabel.isVisible = false
         uploadErrorLabel.isVisible = false
         collapseOptionalSections()
+        // Open on create so the upload (and the AI auto-fill action) is visible up front, not buried.
+        photoDetails.isOpened = true
     }
 
     private fun collapseOptionalSections() {
         tastingDetails.isOpened = false
         trackingDetails.isOpened = false
-        photoDetails.isOpened = false
     }
 
     fun openForEdit(purchase: BeanPurchase) {
         editingId = purchase.id
-        pendingImageData = null
+        clearStagedImage()
+        clearAiMarks()
         clearUploadState()
         binder.bean = PurchaseFormBean().apply {
             name = purchase.name

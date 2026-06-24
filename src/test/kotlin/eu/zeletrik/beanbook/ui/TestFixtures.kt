@@ -4,6 +4,7 @@ import eu.zeletrik.beanbook.TestBeanPurchaseRepository
 import eu.zeletrik.beanbook.TestImportService
 import eu.zeletrik.beanbook.TestPreferencesService
 import eu.zeletrik.beanbook.TestWishlistService
+import eu.zeletrik.beanbook.ai.AiExtractionService
 import eu.zeletrik.beanbook.analytics.AnalyticsService
 import eu.zeletrik.beanbook.beans.BeanPurchase
 import eu.zeletrik.beanbook.beans.BeanPurchaseService
@@ -21,10 +22,11 @@ internal fun testMainView(
     wishlist: TestWishlistService = TestWishlistService(),
     importService: ImportService = TestImportService(),
     prefs: TestPreferencesService = TestPreferencesService(),
+    aiExtractionService: AiExtractionService? = null,
 ): MainView {
     val service = BeanPurchaseService(repo)
     val exportService = ExportService(service, wishlist, jacksonObjectMapper())
-    return MainView(service, AnalyticsService(), exportService, importService, prefs, wishlist)
+    return MainView(service, AnalyticsService(), exportService, importService, prefs, wishlist, aiExtractionService)
 }
 
 /** Convenience: an in-memory repository pre-seeded with [items]. */
