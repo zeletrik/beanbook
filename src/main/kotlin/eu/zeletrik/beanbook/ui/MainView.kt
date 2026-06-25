@@ -297,6 +297,9 @@ class MainView(
         purchasesSearchBar.isVisible = false
         purchasesScrollArea.isVisible = false
         emptyStateMessage.isVisible = false
+        // The low-stock banner is a list-level reorder nudge; on the detail page its extra height pushed
+        // the action buttons under the fixed bottom nav (#22). hideDetail() restores it via refreshView().
+        lowStockBanner.isVisible = false
         detailView.show(purchase)
     }
 
