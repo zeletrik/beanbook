@@ -137,7 +137,7 @@ class PurchaseDetailView(
         return VerticalLayout().apply {
             isPadding = true; isSpacing = false; style["gap"] = "0.25rem"
             add(H2(purchase.name).apply { style["margin"] = "0" })
-            add(Span("${purchase.roaster}  ·  ${purchase.origin}").apply {
+            add(Span("${purchase.roaster}  ·  ${purchase.originLabel()}").apply {
                 style["color"] = "var(--lumo-secondary-text-color)"
             })
             add(HorizontalLayout(ratingSpan, bagStateBadge(purchase.bagState)).apply {

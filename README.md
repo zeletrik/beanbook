@@ -12,7 +12,7 @@ install onto your phone's home screen like a native app.
 
 ### Bean log
 
-- Record purchases with name, roaster, origin, process, roast level, and roast profile (espresso / filter / omni)
+- Record purchases with name, roaster, origin (with an optional second-level region, e.g. Colombia → Huila), process, roast level, and roast profile (espresso / filter / omni)
 - Track whole-bag price and weight, purchase date, and roast date
 - Follow each bag's lifecycle: **sealed → open → finished** (derived from opened/finished dates)
 - Rate beans 1–5, attach brewing notes, grind settings, freeform tags, a product/roaster URL, and a bag photo

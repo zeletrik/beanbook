@@ -11,6 +11,7 @@ class PurchaseFormBean {
     var name: String = ""
     var roaster: String = ""
     var origin: String = ""
+    var region: String = ""
     var price: BigDecimal? = null
     var weightGrams: Int? = null
     var purchaseDate: LocalDate? = null

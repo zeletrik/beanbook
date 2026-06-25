@@ -72,6 +72,8 @@ class PurchaseFormContent(
         combo.addCustomValueSetListener { event -> combo.value = event.detail }
     }
     internal val originField = TextField("Origin").also { it.setId("field-origin"); it.isRequiredIndicatorVisible = true }
+    /** Optional second-level origin (region / sub-origin), e.g. "Huila" for a Colombia bean. */
+    internal val regionField = TextField("Region").also { it.setId("field-region") }
     // A plain text field with decimal inputmode (not BigDecimalField): iOS shows a numeric keypad with a
     // separator, and the binder converter accepts both "." and "," — so entry works whatever separator the
     // device's keypad produces. BigDecimalField parses with one fixed locale and rejected the other (#18).
@@ -277,7 +279,7 @@ class PurchaseFormContent(
         // Essentials are always visible; everything optional is tucked into collapsible sections so
         // adding a bean isn't a 16-field wall. Required fields are never hidden behind a collapse.
         val essentials = FormLayout(
-            nameField, roasterField, originField,
+            nameField, roasterField, originField, regionField,
             roastLevelField, processField, roastProfileField,
             priceField, weightField,
             purchaseDateField, roastDateField,
@@ -431,6 +433,8 @@ class PurchaseFormContent(
         binder.forField(originField)
             .withValidator({ it.isNotBlank() }, REQUIRED)
             .bind({ it.origin }, { b, v -> b.origin = v })
+        binder.forField(regionField) // optional second-level origin
+            .bind({ it.region }, { b, v -> b.region = v })
         binder.forField(priceField)
             // Accept both "." and "," as the decimal separator (the iOS keypad emits the device's), and
             // present the stored value with a dot. Bad input fails conversion with a clear message.
@@ -522,6 +526,7 @@ class PurchaseFormContent(
             name = purchase.name
             roaster = purchase.roaster
             origin = purchase.origin
+            region = purchase.region ?: ""
             price = purchase.price
             weightGrams = purchase.weightGrams
             purchaseDate = purchase.purchaseDate
@@ -581,6 +586,7 @@ class PurchaseFormContent(
         nameField.value = source.name
         roasterField.value = source.roaster
         originField.value = source.origin
+        regionField.value = source.region ?: ""
         roastLevelField.value = source.roastLevel
         processField.value = source.process
         notesField.value = source.notes ?: ""

@@ -211,4 +211,14 @@ class BeanPurchaseRepositoryTest {
         service.save(samplePurchase(name = "Unlinked")) // url = null by default
         assertNull(service.findAll().first { it.name == "Unlinked" }.url)
     }
+
+    // #19: second-level origin column survives the V2 migration + round-trips, including null.
+    @Test
+    fun `region round-trips including null`() {
+        service.save(samplePurchase(name = "WithRegion").copy(region = "Huila"))
+        assertEquals("Huila", service.findAll().first { it.name == "WithRegion" }.region)
+
+        service.save(samplePurchase(name = "NoRegion")) // region = null by default
+        assertNull(service.findAll().first { it.name == "NoRegion" }.region)
+    }
 }
