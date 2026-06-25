@@ -45,7 +45,7 @@ class GrindSettingsTest {
         addForm.nameField._value = "TestBean"
         addForm.roasterField._value = "TestRoaster"
         addForm.originField._value = "Ethiopia"
-        addForm.priceField._value = BigDecimal("15.00")
+        addForm.priceField._value = "15.00"
         addForm.weightField._value = 250
         addForm.purchaseDateField._value = LocalDate.of(2025, 1, 1)
         addForm.roastDateField._value = LocalDate.of(2024, 12, 28)

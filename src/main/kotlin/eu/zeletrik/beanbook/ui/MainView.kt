@@ -134,6 +134,7 @@ class MainView(
     internal val addFormContent = PurchaseFormContent(
         onSave = { bean: PurchaseFormBean, id: UUID? -> handleFormSave(bean, id); navigateTo(AppTab.PURCHASES) },
         getAllTags = { beanPurchaseService.allTags() },
+        getAllRoasters = { beanPurchaseService.allRoasters() },
         aiExtractionService = aiExtractionService,
     )
 
@@ -168,6 +169,7 @@ class MainView(
                 }
             },
             getAllTags = { beanPurchaseService.allTags() },
+            getAllRoasters = { beanPurchaseService.allRoasters() },
             aiExtractionService = aiExtractionService,
         )
         detailView = PurchaseDetailView(
@@ -297,6 +299,9 @@ class MainView(
         purchasesSearchBar.isVisible = false
         purchasesScrollArea.isVisible = false
         emptyStateMessage.isVisible = false
+        // The low-stock banner is a list-level reorder nudge; on the detail page its extra height pushed
+        // the action buttons under the fixed bottom nav (#22). hideDetail() restores it via refreshView().
+        lowStockBanner.isVisible = false
         detailView.show(purchase)
     }
 

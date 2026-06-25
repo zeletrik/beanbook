@@ -19,6 +19,10 @@ class BeanPurchaseService(
     @Transactional(readOnly = true)
     fun allTags(): SortedSet<String> = repository.findAll().flatMapTo(sortedSetOf()) { it.tags }
 
+    /** The distinct roaster names across all purchases, sorted — for the roaster typeahead. */
+    @Transactional(readOnly = true)
+    fun allRoasters(): SortedSet<String> = repository.findAll().mapTo(sortedSetOf()) { it.roaster }
+
     @Transactional
     fun save(purchase: BeanPurchase): BeanPurchase {
         // App-assigned UUIDs: choose INSERT vs UPDATE by existence, since Spring Data would

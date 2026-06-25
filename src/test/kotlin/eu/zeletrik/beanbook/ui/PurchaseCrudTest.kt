@@ -55,7 +55,7 @@ class PurchaseCrudTest {
         form.nameField._value = name
         form.roasterField._value = "TestRoaster"
         form.originField._value = "Colombia"
-        form.priceField._value = BigDecimal(price)
+        form.priceField._value = price
         form.weightField._value = 250
         form.purchaseDateField._value = LocalDate.of(2025, 6, 1)
         form.roastDateField._value = LocalDate.of(2025, 5, 28)

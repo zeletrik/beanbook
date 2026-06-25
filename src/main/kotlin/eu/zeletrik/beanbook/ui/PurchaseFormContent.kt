@@ -5,6 +5,7 @@ import com.vaadin.flow.component.HasStyle
 import com.vaadin.flow.component.HasValue
 import com.vaadin.flow.component.button.Button
 import com.vaadin.flow.component.button.ButtonVariant
+import com.vaadin.flow.component.combobox.ComboBox
 import com.vaadin.flow.component.combobox.MultiSelectComboBox
 import com.vaadin.flow.component.datepicker.DatePicker
 import com.vaadin.flow.component.details.Details
@@ -17,7 +18,6 @@ import com.vaadin.flow.component.icon.VaadinIcon
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout
 import com.vaadin.flow.component.orderedlayout.VerticalLayout
 import com.vaadin.flow.component.select.Select
-import com.vaadin.flow.component.textfield.BigDecimalField
 import com.vaadin.flow.component.textfield.IntegerField
 import com.vaadin.flow.component.textfield.TextArea
 import com.vaadin.flow.component.textfield.TextField
@@ -56,14 +56,30 @@ class PurchaseFormContent(
     private val onSave: (bean: PurchaseFormBean, existingId: UUID?) -> Unit,
     private val onCancel: (() -> Unit)? = null,
     private val getAllTags: () -> Set<String> = { emptySet() },
+    private val getAllRoasters: () -> Set<String> = { emptySet() },
     /** When present, enables "Auto-fill from photo"; null hides the action entirely (feature off). */
     private val aiExtractionService: AiExtractionService? = null,
 ) : VerticalLayout() {
 
     internal val nameField = TextField("Name").also { it.setId("field-name"); it.isRequiredIndicatorVisible = true }
-    internal val roasterField = TextField("Roaster").also { it.setId("field-roaster"); it.isRequiredIndicatorVisible = true }
+    // Typeahead over roasters already recorded (still accepts a brand-new value) so naming stays
+    // consistent and entry is faster (#21). Suggestions are seeded in openForCreate / openForEdit.
+    internal val roasterField = ComboBox<String>("Roaster").also { combo ->
+        combo.setId("field-roaster")
+        combo.isRequiredIndicatorVisible = true
+        combo.isAllowCustomValue = true
+        combo.isClearButtonVisible = true
+        combo.addCustomValueSetListener { event -> combo.value = event.detail }
+    }
     internal val originField = TextField("Origin").also { it.setId("field-origin"); it.isRequiredIndicatorVisible = true }
-    internal val priceField = BigDecimalField("Price per unit").also { it.setId("field-price"); it.isRequiredIndicatorVisible = true }
+    // A plain text field with decimal inputmode (not BigDecimalField): iOS shows a numeric keypad with a
+    // separator, and the binder converter accepts both "." and "," — so entry works whatever separator the
+    // device's keypad produces. BigDecimalField parses with one fixed locale and rejected the other (#18).
+    internal val priceField = TextField("Price per unit").also {
+        it.setId("field-price")
+        it.isRequiredIndicatorVisible = true
+        it.element.setAttribute("inputmode", "decimal")
+    }
     internal val weightField = IntegerField("Weight (g)").also { it.setId("field-weight"); it.isRequiredIndicatorVisible = true }
     internal val purchaseDateField = DatePicker("Purchase date").also { it.setId("field-purchase-date") }
     internal val roastDateField = DatePicker("Roast date").also { it.setId("field-roast-date") }
@@ -342,7 +358,10 @@ class PurchaseFormContent(
      */
     internal fun applyExtraction(extraction: BeanExtraction) {
         fillTextIfBlank(nameField, extraction.name)
-        fillTextIfBlank(roasterField, extraction.roaster)
+        if (roasterField.value.isNullOrBlank() && !extraction.roaster.isNullOrBlank()) {
+            roasterField.value = extraction.roaster
+            markAi(roasterField)
+        }
         fillTextIfBlank(originField, extraction.origin)
         if (roastLevelField.value == null && extraction.roastLevel != null) {
             roastLevelField.value = extraction.roastLevel
@@ -369,8 +388,8 @@ class PurchaseFormContent(
             weightField.value = extraction.weightGrams
             markAi(weightField)
         }
-        if (priceField.value == null && extraction.price != null) {
-            priceField.value = BigDecimal.valueOf(extraction.price)
+        if (priceField.value.isBlank() && extraction.price != null) {
+            priceField.value = BigDecimal.valueOf(extraction.price).toPlainString()
             markAi(priceField)
         }
         if (notesField.value.isBlank() && !extraction.notes.isNullOrBlank()) {
@@ -407,12 +426,19 @@ class PurchaseFormContent(
             .withValidator({ it.isNotBlank() }, REQUIRED)
             .bind({ it.name }, { b, v -> b.name = v })
         binder.forField(roasterField)
-            .withValidator({ it.isNotBlank() }, REQUIRED)
-            .bind({ it.roaster }, { b, v -> b.roaster = v })
+            .withValidator({ !it.isNullOrBlank() }, REQUIRED)
+            .bind({ it.roaster }, { b, v -> b.roaster = v ?: "" })
         binder.forField(originField)
             .withValidator({ it.isNotBlank() }, REQUIRED)
             .bind({ it.origin }, { b, v -> b.origin = v })
         binder.forField(priceField)
+            // Accept both "." and "," as the decimal separator (the iOS keypad emits the device's), and
+            // present the stored value with a dot. Bad input fails conversion with a clear message.
+            .withConverter(
+                { text -> text.trim().replace(',', '.').takeIf(String::isNotEmpty)?.let(::BigDecimal) },
+                { value: BigDecimal? -> value?.toPlainString() ?: "" },
+                "Enter a valid price",
+            )
             .withValidator({ it != null }, REQUIRED)
             .withValidator({ it == null || it > BigDecimal.ZERO }, "Must be greater than 0")
             .bind({ it.price }, { b, v -> b.price = v })
@@ -469,6 +495,7 @@ class PurchaseFormContent(
         editingId = null
         clearStagedImage()
         clearAiMarks()
+        roasterField.setItems(getAllRoasters())
         binder.bean = PurchaseFormBean()
         tagsField.setItems(getAllTags())
         clearUploadState()
@@ -490,6 +517,7 @@ class PurchaseFormContent(
         clearStagedImage()
         clearAiMarks()
         clearUploadState()
+        roasterField.setItems(getAllRoasters())
         binder.bean = PurchaseFormBean().apply {
             name = purchase.name
             roaster = purchase.roaster

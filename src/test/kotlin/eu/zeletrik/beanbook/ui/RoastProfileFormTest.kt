@@ -49,7 +49,7 @@ class RoastProfileFormTest {
         view.addFormContent.nameField.value = name
         view.addFormContent.roasterField.value = "Roaster"
         view.addFormContent.originField.value = "Ethiopia"
-        view.addFormContent.priceField.value = BigDecimal("15.00")
+        view.addFormContent.priceField.value = "15.00"
         view.addFormContent.weightField.value = 250
         view.addFormContent.purchaseDateField.value = LocalDate.of(2025, 1, 1)
         view.addFormContent.roastDateField.value = LocalDate.of(2024, 12, 28)
@@ -150,7 +150,7 @@ class RoastProfileFormTest {
         view.addFormContent.nameField.value = "Source Copy"
         view.addFormContent.roasterField.value = "R"
         view.addFormContent.originField.value = "E"
-        view.addFormContent.priceField.value = BigDecimal("15.00")
+        view.addFormContent.priceField.value = "15.00"
         view.addFormContent.weightField.value = 250
         view.addFormContent.purchaseDateField.value = LocalDate.of(2025, 1, 1)
         view.addFormContent.roastDateField.value = LocalDate.of(2024, 12, 28)
