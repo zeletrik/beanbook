@@ -56,7 +56,7 @@ class ImageUploadTest {
         form.nameField._value = "Bean"
         form.roasterField._value = "Roaster"
         form.originField._value = "Ethiopia"
-        form.priceField._value = BigDecimal("15.00")
+        form.priceField._value = "15.00"
         form.weightField._value = 250
         form.purchaseDateField._value = LocalDate.of(2025, 1, 1)
         form.roastDateField._value = LocalDate.of(2024, 12, 28)

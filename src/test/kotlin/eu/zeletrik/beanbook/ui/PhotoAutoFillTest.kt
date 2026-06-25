@@ -128,7 +128,7 @@ class PhotoAutoFillTest {
         assertEquals(RoastLevel.LIGHT, form.roastLevelField.value)
         assertEquals(Process.WASHED, form.processField.value)
         assertEquals(250, form.weightField.value)
-        assertEquals(0, BigDecimal("12.5").compareTo(form.priceField.value))
+        assertEquals("12.5", form.priceField.value)
         assertEquals("blueberry, floral", form.notesField.value)
         assertTrue(form.tastingDetails.isOpened, "Notes were filled, so the tasting section is revealed")
         assertEquals(LocalDate.of(2024, 3, 15), form.roastDateField.value)

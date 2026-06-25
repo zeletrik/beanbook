@@ -62,7 +62,7 @@ class NotificationTest {
         view.addFormContent.nameField.value = name
         view.addFormContent.roasterField.value = "Roaster"
         view.addFormContent.originField.value = "Ethiopia"
-        view.addFormContent.priceField.value = BigDecimal("18.00")
+        view.addFormContent.priceField.value = "18.00"
         view.addFormContent.weightField.value = 250
         view.addFormContent.purchaseDateField.value = LocalDate.of(2025, 1, 1)
         view.addFormContent.roastDateField.value = LocalDate.of(2024, 12, 28)

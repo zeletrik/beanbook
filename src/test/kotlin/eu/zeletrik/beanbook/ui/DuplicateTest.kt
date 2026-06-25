@@ -110,7 +110,7 @@ class DuplicateTest {
         val purchase = sourcePurchase()
         triggerDuplicate(purchase)
 
-        assertNull(view.addFormContent.priceField.value)
+        assertTrue(view.addFormContent.priceField.value.isEmpty())
         assertNull(view.addFormContent.weightField.value)
         assertNull(view.addFormContent.purchaseDateField.value)
         assertNull(view.addFormContent.roastDateField.value)
@@ -127,7 +127,7 @@ class DuplicateTest {
         triggerDuplicate(source)
 
         // Complete the duplicate form and save
-        view.addFormContent.priceField._value = BigDecimal("20.00")
+        view.addFormContent.priceField._value = "20.00"
         view.addFormContent.weightField._value = 200
         view.addFormContent.purchaseDateField._value = LocalDate.of(2025, 6, 1)
         view.addFormContent.roastDateField._value = LocalDate.of(2025, 5, 28)
@@ -147,7 +147,7 @@ class DuplicateTest {
         triggerDuplicate(source)
 
         // Save the duplicate
-        view.addFormContent.priceField._value = BigDecimal("20.00")
+        view.addFormContent.priceField._value = "20.00"
         view.addFormContent.weightField._value = 200
         view.addFormContent.purchaseDateField._value = LocalDate.of(2025, 6, 1)
         view.addFormContent.roastDateField._value = LocalDate.of(2025, 5, 28)

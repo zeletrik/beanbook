@@ -4,6 +4,7 @@ import com.github.mvysny.kaributesting.v10.MockVaadin
 import com.github.mvysny.kaributesting.v10._click
 import com.github.mvysny.kaributesting.v10._find
 import com.github.mvysny.kaributesting.v10._get
+import com.github.mvysny.kaributesting.v10._value
 import com.vaadin.flow.component.dialog.Dialog
 import com.vaadin.flow.component.html.Image
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout
@@ -20,7 +21,6 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import java.math.BigDecimal
 import java.time.LocalDate
-import java.util.Locale
 import java.util.UUID
 
 /** Covers the Phase 1 fixes: #18 (price locale), #21 (roaster typeahead), #22 (banner on detail), #17 (photo open). */
@@ -53,8 +53,27 @@ class Phase1FixesTest {
 
     // #18
     @Test
-    fun `price field uses a dot decimal separator regardless of device locale`() {
-        assertEquals(Locale.ENGLISH, view.addFormContent.priceField.locale)
+    fun `price field uses a decimal inputmode for mobile keypads`() {
+        assertEquals("decimal", view.addFormContent.priceField.element.getAttribute("inputmode"))
+    }
+
+    @Test
+    fun `price field accepts a comma decimal separator`() {
+        view.navigateTo(AppTab.ADD)
+        val form = view.addFormContent
+        form.nameField._value = "Bean"
+        form.roasterField._value = "Roaster"
+        form.originField._value = "Ethiopia"
+        form.roastLevelField._value = RoastLevel.LIGHT
+        form.processField._value = Process.WASHED
+        form.priceField._value = "1,50" // comma, as a EU-region iOS keypad produces
+        form.weightField._value = 250
+        form.purchaseDateField._value = LocalDate.of(2025, 3, 10)
+        form.roastDateField._value = LocalDate.of(2025, 3, 5)
+        form.saveButton.click()
+
+        val saved = repo.findAll().single()
+        assertEquals(0, BigDecimal("1.50").compareTo(saved.price), "A comma decimal must parse to 1.50")
     }
 
     // #21

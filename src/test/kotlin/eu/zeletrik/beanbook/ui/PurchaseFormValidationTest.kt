@@ -43,7 +43,7 @@ class PurchaseFormValidationTest {
         form.nameField._value = "Yirgacheffe"
         form.roasterField._value = "Square Mile"
         form.originField._value = "Ethiopia"
-        form.priceField._value = BigDecimal("18.50")
+        form.priceField._value = "18.50"
         form.weightField._value = 250
         form.purchaseDateField._value = LocalDate.of(2025, 1, 1)
         form.roastDateField._value = LocalDate.of(2024, 12, 28)
@@ -83,7 +83,7 @@ class PurchaseFormValidationTest {
     @Test
     fun `price greater than zero is accepted`() {
         fillValidForm()
-        addForm.priceField._value = BigDecimal("0.01")
+        addForm.priceField._value = "0.01"
         val countBefore = view.purchaseCount
         addForm.saveButton.click()
         assertEquals(countBefore + 1, view.purchaseCount)
@@ -93,7 +93,7 @@ class PurchaseFormValidationTest {
     @Test
     fun `price equal to zero is rejected`() {
         fillValidForm()
-        addForm.priceField._value = BigDecimal.ZERO
+        addForm.priceField._value = "0"
         val countBefore = view.purchaseCount
         addForm.saveButton.click()
         assertEquals(countBefore, view.purchaseCount)
@@ -103,7 +103,7 @@ class PurchaseFormValidationTest {
     @Test
     fun `price less than zero is rejected`() {
         fillValidForm()
-        addForm.priceField._value = BigDecimal("-1.00")
+        addForm.priceField._value = "-1.00"
         val countBefore = view.purchaseCount
         addForm.saveButton.click()
         assertEquals(countBefore, view.purchaseCount)

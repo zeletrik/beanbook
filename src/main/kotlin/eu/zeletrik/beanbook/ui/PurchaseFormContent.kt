@@ -18,7 +18,6 @@ import com.vaadin.flow.component.icon.VaadinIcon
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout
 import com.vaadin.flow.component.orderedlayout.VerticalLayout
 import com.vaadin.flow.component.select.Select
-import com.vaadin.flow.component.textfield.BigDecimalField
 import com.vaadin.flow.component.textfield.IntegerField
 import com.vaadin.flow.component.textfield.TextArea
 import com.vaadin.flow.component.textfield.TextField
@@ -35,7 +34,6 @@ import kotlinx.coroutines.runBlocking
 import java.io.ByteArrayInputStream
 import java.math.BigDecimal
 import java.time.LocalDate
-import java.util.Locale
 import java.util.UUID
 
 private const val MAX_IMAGE_BYTES = 5_242_880
@@ -74,13 +72,13 @@ class PurchaseFormContent(
         combo.addCustomValueSetListener { event -> combo.value = event.detail }
     }
     internal val originField = TextField("Origin").also { it.setId("field-origin"); it.isRequiredIndicatorVisible = true }
-    internal val priceField = BigDecimalField("Price per unit").also {
+    // A plain text field with decimal inputmode (not BigDecimalField): iOS shows a numeric keypad with a
+    // separator, and the binder converter accepts both "." and "," — so entry works whatever separator the
+    // device's keypad produces. BigDecimalField parses with one fixed locale and rejected the other (#18).
+    internal val priceField = TextField("Price per unit").also {
         it.setId("field-price")
         it.isRequiredIndicatorVisible = true
-        // Pin the decimal separator to "." regardless of the device locale: prices are displayed with a
-        // dot (formatPrice), and on locales that default to "," (e.g. iOS in much of Europe) the field
-        // would otherwise reject the dot the user types — so decimals couldn't be entered. (#18)
-        it.setLocale(Locale.ENGLISH)
+        it.element.setAttribute("inputmode", "decimal")
     }
     internal val weightField = IntegerField("Weight (g)").also { it.setId("field-weight"); it.isRequiredIndicatorVisible = true }
     internal val purchaseDateField = DatePicker("Purchase date").also { it.setId("field-purchase-date") }
@@ -390,8 +388,8 @@ class PurchaseFormContent(
             weightField.value = extraction.weightGrams
             markAi(weightField)
         }
-        if (priceField.value == null && extraction.price != null) {
-            priceField.value = BigDecimal.valueOf(extraction.price)
+        if (priceField.value.isBlank() && extraction.price != null) {
+            priceField.value = BigDecimal.valueOf(extraction.price).toPlainString()
             markAi(priceField)
         }
         if (notesField.value.isBlank() && !extraction.notes.isNullOrBlank()) {
@@ -434,6 +432,13 @@ class PurchaseFormContent(
             .withValidator({ it.isNotBlank() }, REQUIRED)
             .bind({ it.origin }, { b, v -> b.origin = v })
         binder.forField(priceField)
+            // Accept both "." and "," as the decimal separator (the iOS keypad emits the device's), and
+            // present the stored value with a dot. Bad input fails conversion with a clear message.
+            .withConverter(
+                { text -> text.trim().replace(',', '.').takeIf(String::isNotEmpty)?.let(::BigDecimal) },
+                { value: BigDecimal? -> value?.toPlainString() ?: "" },
+                "Enter a valid price",
+            )
             .withValidator({ it != null }, REQUIRED)
             .withValidator({ it == null || it > BigDecimal.ZERO }, "Must be greater than 0")
             .bind({ it.price }, { b, v -> b.price = v })
