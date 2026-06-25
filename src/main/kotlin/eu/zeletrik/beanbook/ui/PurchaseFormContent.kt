@@ -5,6 +5,7 @@ import com.vaadin.flow.component.HasStyle
 import com.vaadin.flow.component.HasValue
 import com.vaadin.flow.component.button.Button
 import com.vaadin.flow.component.button.ButtonVariant
+import com.vaadin.flow.component.combobox.ComboBox
 import com.vaadin.flow.component.combobox.MultiSelectComboBox
 import com.vaadin.flow.component.datepicker.DatePicker
 import com.vaadin.flow.component.details.Details
@@ -57,12 +58,21 @@ class PurchaseFormContent(
     private val onSave: (bean: PurchaseFormBean, existingId: UUID?) -> Unit,
     private val onCancel: (() -> Unit)? = null,
     private val getAllTags: () -> Set<String> = { emptySet() },
+    private val getAllRoasters: () -> Set<String> = { emptySet() },
     /** When present, enables "Auto-fill from photo"; null hides the action entirely (feature off). */
     private val aiExtractionService: AiExtractionService? = null,
 ) : VerticalLayout() {
 
     internal val nameField = TextField("Name").also { it.setId("field-name"); it.isRequiredIndicatorVisible = true }
-    internal val roasterField = TextField("Roaster").also { it.setId("field-roaster"); it.isRequiredIndicatorVisible = true }
+    // Typeahead over roasters already recorded (still accepts a brand-new value) so naming stays
+    // consistent and entry is faster (#21). Suggestions are seeded in openForCreate / openForEdit.
+    internal val roasterField = ComboBox<String>("Roaster").also { combo ->
+        combo.setId("field-roaster")
+        combo.isRequiredIndicatorVisible = true
+        combo.isAllowCustomValue = true
+        combo.isClearButtonVisible = true
+        combo.addCustomValueSetListener { event -> combo.value = event.detail }
+    }
     internal val originField = TextField("Origin").also { it.setId("field-origin"); it.isRequiredIndicatorVisible = true }
     internal val priceField = BigDecimalField("Price per unit").also {
         it.setId("field-price")
@@ -350,7 +360,10 @@ class PurchaseFormContent(
      */
     internal fun applyExtraction(extraction: BeanExtraction) {
         fillTextIfBlank(nameField, extraction.name)
-        fillTextIfBlank(roasterField, extraction.roaster)
+        if (roasterField.value.isNullOrBlank() && !extraction.roaster.isNullOrBlank()) {
+            roasterField.value = extraction.roaster
+            markAi(roasterField)
+        }
         fillTextIfBlank(originField, extraction.origin)
         if (roastLevelField.value == null && extraction.roastLevel != null) {
             roastLevelField.value = extraction.roastLevel
@@ -415,8 +428,8 @@ class PurchaseFormContent(
             .withValidator({ it.isNotBlank() }, REQUIRED)
             .bind({ it.name }, { b, v -> b.name = v })
         binder.forField(roasterField)
-            .withValidator({ it.isNotBlank() }, REQUIRED)
-            .bind({ it.roaster }, { b, v -> b.roaster = v })
+            .withValidator({ !it.isNullOrBlank() }, REQUIRED)
+            .bind({ it.roaster }, { b, v -> b.roaster = v ?: "" })
         binder.forField(originField)
             .withValidator({ it.isNotBlank() }, REQUIRED)
             .bind({ it.origin }, { b, v -> b.origin = v })
@@ -477,6 +490,7 @@ class PurchaseFormContent(
         editingId = null
         clearStagedImage()
         clearAiMarks()
+        roasterField.setItems(getAllRoasters())
         binder.bean = PurchaseFormBean()
         tagsField.setItems(getAllTags())
         clearUploadState()
@@ -498,6 +512,7 @@ class PurchaseFormContent(
         clearStagedImage()
         clearAiMarks()
         clearUploadState()
+        roasterField.setItems(getAllRoasters())
         binder.bean = PurchaseFormBean().apply {
             name = purchase.name
             roaster = purchase.roaster

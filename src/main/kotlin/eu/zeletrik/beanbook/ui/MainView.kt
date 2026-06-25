@@ -134,6 +134,7 @@ class MainView(
     internal val addFormContent = PurchaseFormContent(
         onSave = { bean: PurchaseFormBean, id: UUID? -> handleFormSave(bean, id); navigateTo(AppTab.PURCHASES) },
         getAllTags = { beanPurchaseService.allTags() },
+        getAllRoasters = { beanPurchaseService.allRoasters() },
         aiExtractionService = aiExtractionService,
     )
 
@@ -168,6 +169,7 @@ class MainView(
                 }
             },
             getAllTags = { beanPurchaseService.allTags() },
+            getAllRoasters = { beanPurchaseService.allRoasters() },
             aiExtractionService = aiExtractionService,
         )
         detailView = PurchaseDetailView(

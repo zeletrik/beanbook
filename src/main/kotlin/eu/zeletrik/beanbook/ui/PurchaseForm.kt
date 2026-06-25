@@ -9,6 +9,7 @@ import java.util.UUID
 class PurchaseForm(
     onSave: (bean: PurchaseFormBean, existingId: UUID?) -> Unit,
     getAllTags: () -> Set<String> = { emptySet() },
+    getAllRoasters: () -> Set<String> = { emptySet() },
     aiExtractionService: AiExtractionService? = null,
 ) : Dialog() {
 
@@ -16,6 +17,7 @@ class PurchaseForm(
         onSave = { bean, id -> onSave(bean, id); close() },
         onCancel = { close() },
         getAllTags = getAllTags,
+        getAllRoasters = getAllRoasters,
         aiExtractionService = aiExtractionService,
     )
 
