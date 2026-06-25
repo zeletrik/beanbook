@@ -1,7 +1,9 @@
 package eu.zeletrik.beanbook.ui
 
+import com.vaadin.flow.component.Component
 import com.vaadin.flow.component.button.Button
 import com.vaadin.flow.component.button.ButtonVariant
+import com.vaadin.flow.component.dialog.Dialog
 import com.vaadin.flow.component.html.Anchor
 import com.vaadin.flow.component.html.Div
 import com.vaadin.flow.component.html.H2
@@ -79,11 +81,19 @@ class PurchaseDetailView(
         style["overflow-y"] = "auto"; style["padding-bottom"] = "1rem"
     }
 
-    private fun buildPhoto(purchase: BeanPurchase): com.vaadin.flow.component.Component =
-        if (purchase.imageData != null) {
-            Image(purchase.imageData, "Photo of ${purchase.name}").apply {
+    private fun buildPhoto(purchase: BeanPurchase): Component {
+        val data = purchase.imageData
+        return if (data != null) {
+            // `contain` (not `cover`) keeps the whole bag visible — on wide screens `cover` cropped it
+            // beyond recognition (#17). Tap to open it full-size.
+            Image(data, "Photo of ${purchase.name}").apply {
+                setId("detail-photo")
                 width = "100%"; style["max-height"] = "260px"
-                style["object-fit"] = "cover"; style["display"] = "block"
+                style["object-fit"] = "contain"; style["display"] = "block"
+                style["background"] = "var(--lumo-contrast-5pct)"
+                style["cursor"] = "pointer"
+                element.setAttribute("title", "Tap to enlarge")
+                addClickListener { openPhotoDialog(data, purchase.name) }
             }
         } else {
             Div(Icon(VaadinIcon.COFFEE).apply {
@@ -95,6 +105,23 @@ class PurchaseDetailView(
                 style["background"] = "var(--lumo-contrast-5pct)"
             }
         }
+    }
+
+    /** Opens the bag photo full-size in a dismissible dialog. */
+    private fun openPhotoDialog(data: ByteArray, name: String) {
+        val full = Image(data, "Photo of $name").apply {
+            setId("detail-photo-full")
+            style["max-width"] = "90vw"; style["max-height"] = "85vh"
+            style["object-fit"] = "contain"; style["display"] = "block"
+        }
+        Dialog(full).apply {
+            setId("detail-photo-dialog")
+            headerTitle = name
+            isCloseOnEsc = true
+            isCloseOnOutsideClick = true
+            open()
+        }
+    }
 
     private fun buildHeroSection(purchase: BeanPurchase): VerticalLayout {
         val ratingSpan = if (purchase.rating != null) {
