@@ -34,6 +34,7 @@ import kotlinx.coroutines.runBlocking
 import java.io.ByteArrayInputStream
 import java.math.BigDecimal
 import java.time.LocalDate
+import java.util.Locale
 import java.util.UUID
 
 private const val MAX_IMAGE_BYTES = 5_242_880
@@ -63,7 +64,14 @@ class PurchaseFormContent(
     internal val nameField = TextField("Name").also { it.setId("field-name"); it.isRequiredIndicatorVisible = true }
     internal val roasterField = TextField("Roaster").also { it.setId("field-roaster"); it.isRequiredIndicatorVisible = true }
     internal val originField = TextField("Origin").also { it.setId("field-origin"); it.isRequiredIndicatorVisible = true }
-    internal val priceField = BigDecimalField("Price per unit").also { it.setId("field-price"); it.isRequiredIndicatorVisible = true }
+    internal val priceField = BigDecimalField("Price per unit").also {
+        it.setId("field-price")
+        it.isRequiredIndicatorVisible = true
+        // Pin the decimal separator to "." regardless of the device locale: prices are displayed with a
+        // dot (formatPrice), and on locales that default to "," (e.g. iOS in much of Europe) the field
+        // would otherwise reject the dot the user types — so decimals couldn't be entered. (#18)
+        it.setLocale(Locale.ENGLISH)
+    }
     internal val weightField = IntegerField("Weight (g)").also { it.setId("field-weight"); it.isRequiredIndicatorVisible = true }
     internal val purchaseDateField = DatePicker("Purchase date").also { it.setId("field-purchase-date") }
     internal val roastDateField = DatePicker("Roast date").also { it.setId("field-roast-date") }
