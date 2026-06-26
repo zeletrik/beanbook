@@ -267,7 +267,7 @@ class PurchaseFormContent(
         // An AI-suggested field stops being "suggested" the moment the user edits it themselves
         // (client-originated change), so the accent only flags values the user hasn't yet vetted.
         if (aiExtractionService != null) {
-            listOf(nameField, roasterField, originField, notesField).forEach { it.clearMarkOnEdit() }
+            listOf(nameField, roasterField, originField, regionField, notesField).forEach { it.clearMarkOnEdit() }
             roastLevelField.clearMarkOnEdit()
             roastProfileField.clearMarkOnEdit()
             processField.clearMarkOnEdit()
@@ -365,6 +365,7 @@ class PurchaseFormContent(
             markAi(roasterField)
         }
         fillTextIfBlank(originField, extraction.origin)
+        fillTextIfBlank(regionField, extraction.region)
         if (roastLevelField.value == null && extraction.roastLevel != null) {
             roastLevelField.value = extraction.roastLevel
             markAi(roastLevelField)
@@ -419,7 +420,7 @@ class PurchaseFormContent(
         addValueChangeListener { if (it.isFromClient) removeClassName(AI_CLASS) }
 
     private fun clearAiMarks() = listOf<HasStyle>(
-        nameField, roasterField, originField, notesField,
+        nameField, roasterField, originField, regionField, notesField,
         roastLevelField, roastProfileField, processField, weightField, priceField, roastDateField,
     ).forEach { it.removeClassName(AI_CLASS) }
 

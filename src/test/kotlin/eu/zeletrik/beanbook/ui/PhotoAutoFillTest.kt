@@ -108,6 +108,7 @@ class PhotoAutoFillTest {
                 name = "Should Be Ignored",
                 roaster = "Acme Roasters",
                 origin = "Kenya",
+                region = "Nyeri",
                 roastLevel = RoastLevel.LIGHT,
                 process = Process.WASHED,
                 weightGrams = 250,
@@ -125,6 +126,8 @@ class PhotoAutoFillTest {
         assertEquals("Acme Roasters", form.roasterField.value)
         assertTrue(form.roasterField.hasClassName("ai-suggested"))
         assertEquals("Kenya", form.originField.value)
+        assertEquals("Nyeri", form.regionField.value)
+        assertTrue(form.regionField.hasClassName("ai-suggested"))
         assertEquals(RoastLevel.LIGHT, form.roastLevelField.value)
         assertEquals(Process.WASHED, form.processField.value)
         assertEquals(250, form.weightField.value)

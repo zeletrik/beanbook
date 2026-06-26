@@ -22,8 +22,10 @@ data class BeanExtraction(
     val name: String? = null,
     @property:LLMDescription("Roaster or brand name. Null if not visible.")
     val roaster: String? = null,
-    @property:LLMDescription("Single country or region of origin, e.g. \"Colombia\". Null for a blend or if unclear.")
+    @property:LLMDescription("Country of origin, e.g. \"Colombia\". Null for a blend or if unclear.")
     val origin: String? = null,
+    @property:LLMDescription("Region or sub-origin within the country, e.g. \"Huila\" or \"Yirgacheffe\". Null if not stated.")
+    val region: String? = null,
     @property:LLMDescription("Roast level if stated; null if not clearly indicated.")
     val roastLevel: RoastLevel? = null,
     @property:LLMDescription("Processing method if stated; null if not clearly indicated.")
@@ -56,5 +58,5 @@ data class BeanExtraction(
     /** True when the model found nothing usable, so the caller can treat it as a non-result. */
     fun isEmpty(): Boolean = name == null && roaster == null && origin == null && roastLevel == null &&
             process == null && roastProfile == null && weightGrams == null && price == null && notes == null &&
-            roastDate == null
+            roastDate == null && region == null
 }
