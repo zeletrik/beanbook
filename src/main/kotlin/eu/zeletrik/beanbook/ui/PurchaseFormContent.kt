@@ -577,7 +577,7 @@ class PurchaseFormContent(
 
     /**
      * Opens the form for re-purchasing, pre-filling only the profile fields of [source] (name, roaster,
-     * origin, roast, notes, tags, link, image) while leaving transaction fields empty.
+     * origin, region, roast, notes, tags, link, image) while leaving transaction fields empty.
      */
     fun openWithProfile(source: BeanPurchase) {
         // Reset all fields to empty first, then overlay profile fields via direct field assignment (RULE-10)

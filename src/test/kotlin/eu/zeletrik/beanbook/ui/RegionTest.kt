@@ -62,6 +62,11 @@ class RegionTest {
     }
 
     @Test
+    fun `originLabel trims stray whitespace on origin and region`() {
+        assertEquals("Colombia, Huila", bean(region = " Huila ").copy(origin = " Colombia ").originLabel())
+    }
+
+    @Test
     fun `region entered in the form is saved`() {
         view.navigateTo(AppTab.ADD)
         val form = view.addFormContent
