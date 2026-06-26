@@ -54,6 +54,9 @@ data class BeanPurchase(
     /** Optional link to the bean's product page or the roaster's profile. */
     @Column("url")
     val url: String? = null,
+    /** Optional second-level origin (region / sub-origin), e.g. "Huila" for a Colombia bean. */
+    @Column("region")
+    val region: String? = null,
 ) : Persistable<UUID> {
 
     init {

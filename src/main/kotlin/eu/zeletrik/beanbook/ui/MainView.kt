@@ -418,6 +418,7 @@ class MainView(
             usedAs = if ((bean.roastProfile ?: RoastProfile.OMNI) == RoastProfile.OMNI) bean.usedAs else null,
             tags = bean.tags.map { it.trim().lowercase() }.filter { it.isNotBlank() }.toSet(),
             url = bean.url.toHref(),
+            region = bean.region.trim().takeIf { it.isNotBlank() },
         )
 
     private fun handleFormSave(bean: PurchaseFormBean, existingId: UUID?) {

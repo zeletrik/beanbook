@@ -107,6 +107,10 @@ class LiquibaseMigrationTest {
             "SELECT COUNT(*) FROM DATABASECHANGELOG",
             Int::class.java,
         )
-        assertEquals(1, migrationCount, "The consolidated V1 baseline should appear exactly once in DATABASECHANGELOG")
+        assertEquals(
+            2,
+            migrationCount,
+            "Each changeset (V1 baseline + V2 region) should appear exactly once in DATABASECHANGELOG",
+        )
     }
 }

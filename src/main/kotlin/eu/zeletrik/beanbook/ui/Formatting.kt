@@ -1,5 +1,6 @@
 package eu.zeletrik.beanbook.ui
 
+import eu.zeletrik.beanbook.beans.BeanPurchase
 import java.math.BigDecimal
 import java.math.RoundingMode
 
@@ -22,6 +23,14 @@ internal fun Int?.toStars(): String = when (this) {
 /** Formats a money amount with the given currency symbol, e.g. "€18.50". */
 internal fun BigDecimal.formatPrice(currency: String = "€"): String =
     "$currency${this.setScale(2, RoundingMode.HALF_UP).toPlainString()}"
+
+/** Origin with its optional second-level region, e.g. "Colombia" or "Colombia, Huila". Trims both so
+ *  stray whitespace (from imports or typed input) doesn't show as "Colombia ,  Huila". */
+internal fun BeanPurchase.originLabel(): String {
+    val country = origin.trim()
+    val sub = region?.trim()?.takeIf { it.isNotEmpty() }
+    return if (sub == null) country else "$country, $sub"
+}
 
 /**
  * Normalises a user-entered link into a safe href: prepends `https://` when no scheme is present,
