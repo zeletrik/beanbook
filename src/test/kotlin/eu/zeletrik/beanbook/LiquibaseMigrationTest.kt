@@ -108,9 +108,9 @@ class LiquibaseMigrationTest {
             Int::class.java,
         )
         assertEquals(
-            2,
+            3,
             migrationCount,
-            "Each changeset (V1 baseline + V2 region) should appear exactly once in DATABASECHANGELOG",
+            "Each changeset (V1 baseline + V2 region + V3 webauthn) should appear exactly once in DATABASECHANGELOG",
         )
     }
 }

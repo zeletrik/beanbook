@@ -1,20 +1,20 @@
 package eu.zeletrik.beanbook.ui
 
 import com.github.mvysny.kaributesting.v10.MockVaadin
+import com.github.mvysny.kaributesting.v10._click
 import com.github.mvysny.kaributesting.v10._find
 import com.github.mvysny.kaributesting.v10._get
+import com.vaadin.flow.component.button.Button
 import com.vaadin.flow.component.html.Anchor
 import com.vaadin.flow.component.html.H3
+import com.vaadin.flow.spring.security.AuthenticationContext
 import eu.zeletrik.beanbook.TestBeanPurchaseRepository
-import eu.zeletrik.beanbook.analytics.AnalyticsService
-import eu.zeletrik.beanbook.beans.BeanPurchaseService
-import eu.zeletrik.beanbook.backup.ExportService
+import eu.zeletrik.beanbook.security.SecurityProperties
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-import tools.jackson.module.kotlin.jacksonObjectMapper
 
 /** Tests for the Settings tab in [MainView], covering its navigation entry, Export Data action, and Preferences placeholder. */
 class SettingsViewTest {
@@ -64,5 +64,47 @@ class SettingsViewTest {
         // Verify anchor exists and has download attribute set
         val anchor = view.settingsPage._get<Anchor> { id = "export-data-btn" }
         assertTrue(anchor.element.hasAttribute("download"), "Anchor must have download attribute")
+    }
+
+    /** Records logout calls without performing a real Spring Security logout. */
+    private class RecordingAuthContext : AuthenticationContext() {
+        var loggedOut = false
+        override fun logout() { loggedOut = true }
+    }
+
+    private fun securedView(auth: AuthenticationContext): MainView = testMainView(
+        object : TestBeanPurchaseRepository() {},
+        securityProperties = SecurityProperties(enabled = true, username = "u", password = "p"),
+        authenticationContext = auth,
+    )
+
+    @Test
+    fun `Settings page shows a logout button when auth is enabled`() {
+        val view = securedView(RecordingAuthContext())
+        view.navigateTo(AppTab.SETTINGS)
+
+        val buttons = view.settingsPage._find<Button> { id = "logout-btn" }
+        assertTrue(buttons.isNotEmpty(), "Expected a logout button on Settings page when auth is enabled")
+    }
+
+    @Test
+    fun `clicking logout invokes the authentication context logout`() {
+        val auth = RecordingAuthContext()
+        val view = securedView(auth)
+        view.navigateTo(AppTab.SETTINGS)
+
+        view.settingsPage._get<Button> { id = "logout-btn" }._click()
+        assertTrue(auth.loggedOut, "Clicking logout must call AuthenticationContext.logout()")
+    }
+
+    @Test
+    fun `Settings page has no logout button when auth is disabled`() {
+        val view = makeView() // default: security disabled
+        view.navigateTo(AppTab.SETTINGS)
+
+        assertFalse(
+            view.settingsPage._find<Button> { id = "logout-btn" }.isNotEmpty(),
+            "Logout button must be absent when auth is disabled",
+        )
     }
 }

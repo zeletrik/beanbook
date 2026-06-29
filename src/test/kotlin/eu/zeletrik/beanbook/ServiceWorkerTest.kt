@@ -11,7 +11,11 @@ import org.springframework.web.client.RestTemplate
 import org.junit.jupiter.api.Assertions.assertEquals
 
 /** Verifies that the PWA service worker, registration script, and offline fallback page are served correctly over HTTP. */
-@SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT)
+// Pin auth off: these are public PWA assets and the test must not depend on the security default.
+@SpringBootTest(
+    webEnvironment = WebEnvironment.RANDOM_PORT,
+    properties = ["beanbook.security.enabled=false"],
+)
 class ServiceWorkerTest {
 
     @LocalServerPort

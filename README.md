@@ -54,6 +54,19 @@ install onto your phone's home screen like a native app.
 - Service worker provides an offline fallback so the app shell still loads without a connection
 - Configurable currency symbol (defaults to `€`)
 
+### Authentication (optional, off by default)
+
+- **Off by default** — a loopback / trusted-LAN deployment needs no login, and the app behaves exactly
+  as it did before security was added.
+- Enable it to expose the app beyond localhost: a single account guarded by **username + password**,
+  **passkeys (WebAuthn)**, or both — sign in either way on the same screen.
+- **Passkeys** — register your device's authenticator (Touch ID, Windows Hello, a security key, or your
+  phone) from **Settings → Security**, then sign in with a tap. Credentials are stored in SQLite, so
+  registered passkeys survive restarts.
+- Credentials are supplied via the **environment only**, never baked into the image; the app fails fast
+  at startup if security is enabled without them.
+- **Log out** from Settings, and the login screen follows your light/dark theme like the rest of the app.
+
 ## Tech stack
 
 | Layer         | Technology                                          |
@@ -67,6 +80,7 @@ install onto your phone's home screen like a native app.
 | JSON          | Jackson (`tools.jackson` kotlin module)             |
 | Build         | Gradle (Kotlin DSL), version catalog                |
 | AI (optional) | Koog 1.0 (JetBrains) + OpenAI                       |
+| Auth (optional) | Spring Security 7 + WebAuthn/passkeys (webauthn4j) |
 | Static checks | Detekt 2.0.0-alpha.3                                |
 | Testing       | JUnit 5, Karibu Testing 2.7.0, Spring Modulith test |
 
@@ -84,6 +98,9 @@ top-level package under `eu.zeletrik.beanbook` is an application module with a c
 - **`ai`** — optional, feature-flagged AI-assisted entry: extracts bean fields from a bag photo or a
   product URL to pre-fill the Add form. Built on [Koog](https://github.com/JetBrains/koog) with OpenAI;
   created only when the feature is enabled.
+- **`security`** — optional, off-by-default authentication: a single-account username/password login
+  plus passkey (WebAuthn) registration and sign-in, wired into Vaadin's Spring Security integration.
+  Its beans are created only when the feature is enabled.
 - **`ui`** — the Vaadin views and components (the presentation layer).
 
 **Internal-package convention:** types that are implementation details live in an `internal`
@@ -138,6 +155,12 @@ variable.
 | `BEANBOOK_AI_OPENAI_MODEL` | OpenAI model: `GPT4o`, `GPT4oMini`, or `GPT5`      | `GPT4o`                  |
 | `OLLAMA_BASE_URL`          | Ollama server URL; used when provider is `OLLAMA`  | `http://localhost:11434` |
 | `BEANBOOK_AI_OLLAMA_MODEL` | Ollama model: `GRANITE_VISION` or `LLAMA_3_2`      | `GRANITE_VISION`         |
+| `BEANBOOK_SECURITY_ENABLED` | Require sign-in (username/password + passkeys)    | `false`                  |
+| `BEANBOOK_AUTH_USERNAME`   | Account username; required when security is enabled | _(unset)_              |
+| `BEANBOOK_AUTH_PASSWORD`   | Account password; required when security is enabled | _(unset)_              |
+| `BEANBOOK_PASSKEY_RP_ID`   | Passkey relying-party id — the host the app is served from | `localhost`       |
+| `BEANBOOK_PASSKEY_RP_NAME` | Relying-party name shown by the authenticator      | `Bean Book`              |
+| `BEANBOOK_PASSKEY_ALLOWED_ORIGINS` | Allowed origin(s) for passkeys (comma-separated) | `http://localhost:8001` |
 
 The server listens on port **8001**.
 
@@ -162,6 +185,30 @@ Off by default. Set `BEANBOOK_AI_ENABLED=true`, then pick a provider with `BEANB
   your own key; URL cost varies with page size. Ollama: **zero marginal cost** (your hardware).
 - **You stay in control** — AI only pre-fills the Add form for you to review and save; it never writes a
   purchase on its own, and never overwrites a field you've already filled in.
+
+### Authentication (opt-in)
+
+Off by default — fine for loopback or trusted-LAN use. To require sign-in (for example, before exposing
+the app to the internet):
+
+1. Set `BEANBOOK_SECURITY_ENABLED=true` and provide `BEANBOOK_AUTH_USERNAME` / `BEANBOOK_AUTH_PASSWORD`
+   (read from the environment only — never baked into the image or committed). The app fails fast at
+   startup if security is on but the credentials are missing.
+2. Sign in with the password, then open **Settings → Security → Manage passkeys** to register this
+   device's authenticator. From then on you can sign in with a passkey (Touch ID, Windows Hello, a
+   security key, or your phone) instead of typing the password.
+
+**Passkeys are origin-bound**, so when you serve the app from a real host you must point the relying-party
+config at how the browser actually reaches it:
+
+- `BEANBOOK_PASSKEY_RP_ID` — the registrable domain, e.g. `beans.example.com` (default `localhost`).
+- `BEANBOOK_PASSKEY_ALLOWED_ORIGINS` — the full origin(s), comma-separated, e.g.
+  `https://beans.example.com` (default `http://localhost:8001`).
+- `BEANBOOK_PASSKEY_RP_NAME` — the label the authenticator shows during registration (default `Bean Book`).
+
+WebAuthn requires a **secure context**: passkeys work on `localhost` or over **HTTPS**, so put the app
+behind TLS when exposing it. The account and its registered passkeys are stored in SQLite (they survive
+restarts). Log out any time from **Settings**.
 
 ## Docker / homelab deployment
 
@@ -207,13 +254,14 @@ src/main/kotlin/eu/zeletrik/beanbook
 ├── beans/                        # core domain
 │   └── internal/                 # repositories, converters (module-private)
 ├── preferences/                  # currency & user preferences
+├── security/                     # optional auth: password + passkey (WebAuthn) login
 ├── ui/                           # Vaadin views and components
 └── wishlist/                     # beans to try
     └── internal/                 # repository (module-private)
 
 src/main/resources
-├── application.yml               # server, datasource, Liquibase config
-├── db/changelog/                 # Liquibase migrations
+├── application.yml               # server, datasource, Liquibase, AI & security config
+├── db/changelog/                 # Liquibase migrations (incl. WebAuthn passkey tables)
 └── static/                       # manifest.webmanifest, sw.js, offline.html, icons
 ```
 

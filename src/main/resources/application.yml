@@ -40,3 +40,22 @@ beanbook:
     ollama:
       base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
       model: GRANITE_VISION
+
+---
+# Optional authentication — off by default (loopback deployments need none). To expose the app beyond
+# localhost: set BEANBOOK_SECURITY_ENABLED=true and supply BEANBOOK_AUTH_USERNAME / BEANBOOK_AUTH_PASSWORD
+# via the environment (never baked into the image).
+#
+# Passkey (WebAuthn) login is available alongside the password whenever auth is enabled. Passkeys are
+# origin-bound: the defaults suit loopback use, so when exposing the app set BEANBOOK_PASSKEY_RP_ID to
+# the host (e.g. beans.example.com) and BEANBOOK_PASSKEY_ALLOWED_ORIGINS to the full origin(s)
+# (comma-separated, e.g. https://beans.example.com).
+beanbook:
+  security:
+    enabled: ${BEANBOOK_SECURITY_ENABLED:false}
+    username: ${BEANBOOK_AUTH_USERNAME:}
+    password: ${BEANBOOK_AUTH_PASSWORD:}
+    passkey:
+      rp-id: ${BEANBOOK_PASSKEY_RP_ID:localhost}
+      rp-name: ${BEANBOOK_PASSKEY_RP_NAME:Bean Book}
+      allowed-origins: ${BEANBOOK_PASSKEY_ALLOWED_ORIGINS:http://localhost:8001}

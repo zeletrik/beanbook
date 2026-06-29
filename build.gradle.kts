@@ -33,6 +33,11 @@ dependencies {
     implementation(libs.koog.agents.jvm)
     implementation(libs.koog.openai.client)
 
+    // Security (optional auth, off by default)
+    implementation(libs.spring.boot.starter.security)
+    // Passkey (WebAuthn) login alongside username/password — pulls webauthn4j-core transitively.
+    implementation(libs.spring.security.webauthn)
+
     // Test
     testImplementation(libs.spring.boot.starter.webmvc.test)
     testImplementation(libs.kotlin.test.junit5)

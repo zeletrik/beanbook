@@ -26,6 +26,8 @@ karibu-testing = { module = "com.github.mvysny.kaributesting:karibu-testing-v24"
 sqlite-jdbc = { module = "org.xerial:sqlite-jdbc", version.ref = "sqlite-jdbc" }
 spring-boot-starter-data-jdbc = { module = "org.springframework.boot:spring-boot-starter-data-jdbc" }
 spring-boot-starter-liquibase = { module = "org.springframework.boot:spring-boot-starter-liquibase" }
+spring-boot-starter-security = { module = "org.springframework.boot:spring-boot-starter-security" }
+spring-security-webauthn = { module = "org.springframework.security:spring-security-webauthn" }
 koog-agents-jvm = { group = "ai.koog", name = "koog-agents-jvm", version.ref = "koog" }
 koog-openai-client = { group = "ai.koog", name = "prompt-executor-openai-client", version.ref = "koog" }
 
