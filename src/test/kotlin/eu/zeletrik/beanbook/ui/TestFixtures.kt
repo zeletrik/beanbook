@@ -10,6 +10,8 @@ import eu.zeletrik.beanbook.beans.BeanPurchase
 import eu.zeletrik.beanbook.beans.BeanPurchaseService
 import eu.zeletrik.beanbook.backup.ExportService
 import eu.zeletrik.beanbook.backup.ImportService
+import eu.zeletrik.beanbook.security.SecurityProperties
+import com.vaadin.flow.spring.security.AuthenticationContext
 import tools.jackson.module.kotlin.jacksonObjectMapper
 
 /**
@@ -23,10 +25,15 @@ internal fun testMainView(
     importService: ImportService = TestImportService(),
     prefs: TestPreferencesService = TestPreferencesService(),
     aiExtractionService: AiExtractionService? = null,
+    securityProperties: SecurityProperties? = null,
+    authenticationContext: AuthenticationContext? = null,
 ): MainView {
     val service = BeanPurchaseService(repo)
     val exportService = ExportService(service, wishlist, jacksonObjectMapper())
-    return MainView(service, AnalyticsService(), exportService, importService, prefs, wishlist, aiExtractionService)
+    return MainView(
+        service, AnalyticsService(), exportService, importService, prefs, wishlist,
+        aiExtractionService, securityProperties, authenticationContext,
+    )
 }
 
 /** Convenience: an in-memory repository pre-seeded with [items]. */

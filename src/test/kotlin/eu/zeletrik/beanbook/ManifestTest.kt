@@ -11,7 +11,12 @@ import org.springframework.http.HttpStatus
 import org.springframework.web.client.RestTemplate
 
 /** Verifies that the PWA manifest and app icons are served with the expected status, content types, and metadata. */
-@SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT)
+// Pin auth off: the manifest and icons are public PWA assets; this test must not depend on the
+// deployment's security default (which can be flipped on via beanbook.security / env vars).
+@SpringBootTest(
+    webEnvironment = WebEnvironment.RANDOM_PORT,
+    properties = ["beanbook.security.enabled=false"],
+)
 class ManifestTest {
 
     @LocalServerPort

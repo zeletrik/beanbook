@@ -1,9 +1,12 @@
 package eu.zeletrik.beanbook.ui
 
+import com.vaadin.flow.component.button.Button
+import com.vaadin.flow.component.button.ButtonVariant
 import com.vaadin.flow.component.html.Anchor
 import com.vaadin.flow.component.html.H3
 import com.vaadin.flow.component.html.Hr
 import com.vaadin.flow.component.html.Span
+import com.vaadin.flow.component.icon.VaadinIcon
 import com.vaadin.flow.component.orderedlayout.VerticalLayout
 import com.vaadin.flow.component.select.Select
 import com.vaadin.flow.component.upload.Upload
@@ -29,6 +32,10 @@ class SettingsView(
     private val preferencesService: PreferencesService,
     private val onImportComplete: () -> Unit = {},
     private val onCurrencyChanged: () -> Unit = {},
+    /** When true (auth enabled), surface the Security section: passkey management and logout. */
+    private val securityEnabled: Boolean = false,
+    /** Invoked when the user clicks "Log out"; wired to Vaadin's AuthenticationContext.logout(). */
+    private val onLogout: () -> Unit = {},
 ) : VerticalLayout() {
 
     private val exportAnchor: Anchor
@@ -114,6 +121,34 @@ class SettingsView(
             }
         }
         add(currencySelect)
+
+        // ── Security ──────────────────────────────────────────────
+        // Only meaningful when auth is enabled; the /webauthn/register page is a Spring-rendered page
+        // (router-ignore forces a full navigation so Spring's filter serves it, not Vaadin's router).
+        if (securityEnabled) {
+            add(Hr())
+            add(H3("Security"))
+            add(Span("Register this device as a passkey, or remove existing ones.").apply {
+                style["font-size"] = "var(--lumo-font-size-s)"
+                style["color"] = "var(--lumo-secondary-text-color)"
+            })
+            add(Anchor("webauthn/register", "Manage passkeys").apply {
+                setId("manage-passkeys-link")
+                element.setAttribute("router-ignore", true)
+                style["display"] = "inline-flex"
+                style["align-items"] = "center"
+                style["padding"] = "0.5rem 1rem"
+                style["background"] = "var(--lumo-contrast-5pct)"
+                style["color"] = "var(--lumo-body-text-color)"
+                style["border-radius"] = "var(--lumo-border-radius-m)"
+                style["text-decoration"] = "none"
+                style["font-weight"] = "600"
+            })
+            add(Button("Log out", VaadinIcon.SIGN_OUT.create()) { onLogout() }.apply {
+                setId("logout-btn")
+                addThemeVariants(ButtonVariant.LUMO_TERTIARY)
+            })
+        }
     }
 
     /** Surfaces an import result to the user. Extracted so the notification wiring is testable. */

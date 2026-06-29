@@ -19,6 +19,7 @@ import com.vaadin.flow.component.tabs.TabsVariant
 import com.vaadin.flow.component.textfield.TextField
 import com.vaadin.flow.data.value.ValueChangeMode
 import com.vaadin.flow.router.Route
+import com.vaadin.flow.spring.security.AuthenticationContext
 import eu.zeletrik.beanbook.ai.AiExtractionService
 import eu.zeletrik.beanbook.analytics.AnalyticsService
 import eu.zeletrik.beanbook.backup.ExportService
@@ -28,7 +29,9 @@ import eu.zeletrik.beanbook.beans.BeanPurchase
 import eu.zeletrik.beanbook.beans.BeanPurchaseService
 import eu.zeletrik.beanbook.beans.RoastProfile
 import eu.zeletrik.beanbook.preferences.PreferencesService
+import eu.zeletrik.beanbook.security.SecurityProperties
 import eu.zeletrik.beanbook.wishlist.WishlistService
+import jakarta.annotation.security.PermitAll
 import org.slf4j.LoggerFactory
 import java.util.UUID
 
@@ -36,6 +39,7 @@ private val log = LoggerFactory.getLogger(MainView::class.java)
 
 /** Root view of the app: a tabbed bottom-nav shell hosting the purchases, analytics, add, wishlist and settings pages. */
 @Route("")
+@PermitAll // honoured only when auth is enabled (Vaadin navigation access control); a no-op when open
 class MainView(
     private val beanPurchaseService: BeanPurchaseService,
     private val analyticsService: AnalyticsService,
@@ -46,6 +50,11 @@ class MainView(
     // Nullable (Kotlin treats it as a non-required dependency): present only when the AI feature is
     // enabled, so the Add/Edit forms gain "Auto-fill from photo"; absent → the action is hidden.
     private val aiExtractionService: AiExtractionService? = null,
+    // Drives whether Settings surfaces the Security section (passkeys + logout). Nullable so Karibu
+    // tests (no Spring context) can construct the view directly; absent → treated as auth disabled.
+    private val securityProperties: SecurityProperties? = null,
+    // Vaadin's logout helper; present when security is on the classpath. Nullable for Karibu tests.
+    private val authenticationContext: AuthenticationContext? = null,
 ) : VerticalLayout() {
 
     internal val cardsLayout = Div().apply {
@@ -356,6 +365,8 @@ class MainView(
             },
             // refreshView() re-renders the list cards and the analytics panel with the new symbol.
             onCurrencyChanged = { refreshView() },
+            securityEnabled = securityProperties?.enabled == true,
+            onLogout = { authenticationContext?.logout() },
         )
         val scrollable = VerticalLayout(H2("Settings"), settingsView).apply {
             isPadding = true; isSpacing = true; width = "100%"
