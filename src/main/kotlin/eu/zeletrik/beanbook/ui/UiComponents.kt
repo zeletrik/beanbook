@@ -2,6 +2,7 @@ package eu.zeletrik.beanbook.ui
 
 import com.vaadin.flow.component.Component
 import com.vaadin.flow.component.html.Div
+import com.vaadin.flow.component.html.H2
 import com.vaadin.flow.component.html.H3
 import com.vaadin.flow.component.html.Span
 import com.vaadin.flow.component.icon.Icon
@@ -68,5 +69,22 @@ internal fun sectionCard(
         style["border-radius"] = "var(--lumo-border-radius-l)"
         style["background"] = "var(--lumo-base-color)"
         style["box-shadow"] = "0 1px 4px rgba(0,0,0,0.08)"
+        // Hairline border so cards read in dark mode (where the shadow nearly vanishes) and match the list rows.
+        style["border"] = "1px solid var(--lumo-contrast-10pct)"
     }
 }
+
+/**
+ * A pinned page header: an [H2] title at the left and an optional [action] (e.g. a button or a chip) at
+ * the right. Used at the top of each tab so every page presents its title the same way and it stays put
+ * while the content below scrolls. [divider] draws a hairline under it (drop it when another bar follows).
+ */
+internal fun pageHeader(title: String, action: Component? = null, divider: Boolean = true): HorizontalLayout =
+    HorizontalLayout().apply {
+        setWidthFull(); isPadding = true; isSpacing = false
+        style["align-items"] = "center"; style["justify-content"] = "space-between"
+        style["flex-shrink"] = "0"; style["box-sizing"] = "border-box"
+        if (divider) style["border-bottom"] = "1px solid var(--lumo-contrast-10pct)"
+        add(H2(title).apply { style["margin"] = "0"; style["font-size"] = "var(--lumo-font-size-xl)" })
+        action?.let { add(it) }
+    }

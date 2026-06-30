@@ -72,22 +72,17 @@ class WishlistView(private val wishlistService: WishlistService) : VerticalLayou
     private val addDialog: Dialog by lazy { buildAddDialog() }
 
     init {
-        setSizeFull(); isPadding = true; isSpacing = false; style["gap"] = "0.75rem"
+        setSizeFull(); isPadding = false; isSpacing = false
 
-        val header = HorizontalLayout(
-            H2("Wishlist").apply { style["margin"] = "0" },
-            Button("Add", Icon(VaadinIcon.PLUS)) { openAddDialog() }.apply {
-                setId("wishlist-open-add-btn")
-                addThemeVariants(ButtonVariant.LUMO_PRIMARY)
-            },
-        ).apply {
-            width = "100%"; isPadding = false; isSpacing = false
-            style["align-items"] = "center"; style["justify-content"] = "space-between"
+        val addButton = Button("Add", Icon(VaadinIcon.PLUS)) { openAddDialog() }.apply {
+            setId("wishlist-open-add-btn")
+            addThemeVariants(ButtonVariant.LUMO_PRIMARY)
         }
-        add(header)
+        add(pageHeader("Wishlist", addButton))
 
         val scrollArea = Div(itemsContainer, emptyState).apply {
             setSizeFull(); style["overflow-y"] = "auto"; style["flex"] = "1"
+            style["padding"] = "0.75rem"; style["box-sizing"] = "border-box"
         }
         add(scrollArea)
         setFlexGrow(1.0, scrollArea)
@@ -275,7 +270,10 @@ class WishlistView(private val wishlistService: WishlistService) : VerticalLayou
             Button("Delete") {
                 dialog.close()
                 confirmDelete(item)
-            }.apply { setId("wishlist-detail-delete"); addThemeVariants(ButtonVariant.LUMO_ERROR, ButtonVariant.LUMO_TERTIARY) },
+            }.apply {
+                setId("wishlist-detail-delete"); addThemeVariants(ButtonVariant.LUMO_ERROR, ButtonVariant.LUMO_TERTIARY)
+                element.setAttribute("aria-label", "Delete ${item.name}")
+            },
             Button("Close") { dialog.close() }.apply { setId("wishlist-detail-close") },
         ).apply { isSpacing = true; isPadding = false; style["margin-top"] = "0.5rem" }
         dialog.add(VerticalLayout(body, actions).apply { isPadding = false; isSpacing = false; width = "100%" })

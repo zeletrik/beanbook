@@ -68,7 +68,7 @@ class AnalyticsPanel(
         add(
             Icon(VaadinIcon.COFFEE).apply {
                 style["width"] = "3rem"; style["height"] = "3rem"
-                style["color"] = "var(--lumo-primary-color)"
+                style["color"] = "var(--lumo-tertiary-text-color)"
             },
             Span("Add beans to see your stats").apply {
                 style["font-size"] = "var(--lumo-font-size-m)"
@@ -251,6 +251,7 @@ class AnalyticsPanel(
             style["border-radius"] = "var(--lumo-border-radius-l)"
             style["background"] = "var(--lumo-base-color)"
             style["box-shadow"] = "0 1px 4px rgba(0,0,0,0.08)"
+            style["border"] = "1px solid var(--lumo-contrast-10pct)"
             style["width"] = "100%"
             style["box-sizing"] = "border-box"
             add(iconDiv)
@@ -282,6 +283,7 @@ class AnalyticsPanel(
             style["border-radius"] = "var(--lumo-border-radius-l)"
             style["background"] = "var(--lumo-base-color)"
             style["box-shadow"] = "0 1px 4px rgba(0,0,0,0.08)"
+            style["border"] = "1px solid var(--lumo-contrast-10pct)"
             style["overflow"] = "hidden"
             // Shared min-height + grid-auto-rows:1fr make all six tiles one uniform size; centre the
             // stack so a tile is never top-hugging. height:100% lets the grid equalise rows.
@@ -447,6 +449,7 @@ class AnalyticsPanel(
                 style["border-radius"] = "var(--lumo-border-radius-l)"
                 style["background"] = "var(--lumo-base-color)"
                 style["box-shadow"] = "0 1px 4px rgba(0,0,0,0.08)"
+                style["border"] = "1px solid var(--lumo-contrast-10pct)"
                 style["box-sizing"] = "border-box"
                 // Shared min-height floor: a sparse section (e.g. a two-item list) gets the same visual
                 // weight as the chart instead of collapsing tiny. Centre content so the floored space

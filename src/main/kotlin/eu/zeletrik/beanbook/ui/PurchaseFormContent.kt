@@ -171,6 +171,7 @@ class PurchaseFormContent(
     }
     internal val currentImageDisplay = Image().also {
         it.setId("current-image")
+        it.setAlt("Current bean photo")
         it.isVisible = false
         it.setHeight("80px")
     }

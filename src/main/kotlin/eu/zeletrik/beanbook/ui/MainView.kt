@@ -89,8 +89,11 @@ class MainView(
     /** Stored so [showDetail]/[hideDetail] can hide it when the detail view is open. */
     private lateinit var purchasesScrollArea: Div
 
-    /** Stored so [showDetail]/[hideDetail] can hide it when the detail view is open. */
-    private lateinit var purchasesSearchBar: HorizontalLayout
+    /**
+     * Pinned Beans header: the "Beans" title + Filter action on one line, with the search field below —
+     * a single compact bar. Hidden while the detail view (which has its own top bar) is open.
+     */
+    private lateinit var purchasesHeader: VerticalLayout
 
     /** Low-stock warning (AC-7–AC-10 / RULE-7, RULE-8). */
     internal val lowStockBanner = HorizontalLayout(
@@ -134,7 +137,7 @@ class MainView(
             filterState = filterState.copy(query = event.value)
             refreshView()
         }
-        style["flex"] = "1"
+        setWidthFull()
     }
     private val filterButton = Button("Filter & Sort") {
         filterSortDialog.openWith(filterState)
@@ -322,7 +325,7 @@ class MainView(
     }
 
     private fun showDetail(purchase: BeanPurchase) {
-        purchasesSearchBar.isVisible = false
+        purchasesHeader.isVisible = false
         purchasesScrollArea.isVisible = false
         emptyStateMessage.isVisible = false
         // The low-stock banner is a list-level reorder nudge; on the detail page its extra height pushed
@@ -333,25 +336,32 @@ class MainView(
 
     private fun hideDetail() {
         detailView.isVisible = false
-        purchasesSearchBar.isVisible = true
+        purchasesHeader.isVisible = true
         // Delegate to refreshView so cards + empty-state are rebuilt against the active filter,
         // rather than re-deriving visibility from the unfiltered list without rebuilding cards.
         refreshView()
     }
 
     private fun buildPurchasesPage(): VerticalLayout {
-        purchasesSearchBar = HorizontalLayout(searchField, filterButton).apply {
-            isSpacing = true; isPadding = true
-            style["width"] = "100%"; style["box-sizing"] = "border-box"
+        // Compact single header: title + Filter on the top line (mirroring Wishlist's "title + action"),
+        // the search field on a second line — one padded, bordered bar instead of two stacked ones.
+        val titleRow = HorizontalLayout(
+            H2("Beans").apply { style["margin"] = "0"; style["font-size"] = "var(--lumo-font-size-xl)" },
+            filterButton,
+        ).apply {
+            setWidthFull(); isPadding = false; isSpacing = false
+            style["align-items"] = "center"; style["justify-content"] = "space-between"
+        }
+        purchasesHeader = VerticalLayout(titleRow, searchField).apply {
+            setWidthFull(); isPadding = true; isSpacing = false; style["gap"] = "0.5rem"
+            style["box-sizing"] = "border-box"; style["flex-shrink"] = "0"
             style["border-bottom"] = "1px solid var(--lumo-contrast-10pct)"
-            style["flex-shrink"] = "0"
-            setDefaultVerticalComponentAlignment(com.vaadin.flow.component.orderedlayout.FlexComponent.Alignment.CENTER)
         }
         purchasesScrollArea = Div(cardsLayout).apply {
             setSizeFull(); style["overflow-y"] = "auto"; style["flex"] = "1"
         }
         return VerticalLayout(
-            purchasesSearchBar,
+            purchasesHeader,
             lowStockBanner,
             purchasesScrollArea,
             emptyStateMessage,
@@ -364,18 +374,23 @@ class MainView(
     }
 
     private fun buildAddPage(): VerticalLayout {
-        val scrollable = VerticalLayout(H2("New Purchase"), addFormContent).apply {
+        val scrollable = VerticalLayout(addFormContent).apply {
             isPadding = true; isSpacing = true; width = "100%"
         }
-        return VerticalLayout(scrollable).apply {
+        // Pinned title; the form (incl. its sticky Save bar) scrolls below.
+        val scroll = VerticalLayout(scrollable).apply {
+            setSizeFull(); isPadding = false; isSpacing = false; style["overflow-y"] = "auto"
+        }
+        return VerticalLayout(pageHeader("New Purchase"), scroll).apply {
             setSizeFull(); isPadding = false; isSpacing = false
-            style["overflow-y"] = "auto"
+            setFlexGrow(1.0, scroll)
         }
     }
 
     private fun buildAnalyticsPage(): VerticalLayout =
-        VerticalLayout(H2("Analytics"), analyticsPanel).apply {
-            setSizeFull(); isPadding = true; isSpacing = false
+        // Pinned title; the panel manages its own scroll + padding (so no double padding here).
+        VerticalLayout(pageHeader("Analytics"), analyticsPanel).apply {
+            setSizeFull(); isPadding = false; isSpacing = false
             setFlexGrow(1.0, analyticsPanel)
         }
 
@@ -393,14 +408,10 @@ class MainView(
             // Shown as a muted chip in the Settings header; null in tests/dev → chip hidden.
             appVersion = buildProperties?.version,
         )
-        // SettingsView owns its own "Settings" header (with the version chip), so the page is just the
-        // scrollable view itself.
-        val scrollable = VerticalLayout(settingsView).apply {
-            isPadding = true; isSpacing = true; width = "100%"
-        }
-        return VerticalLayout(scrollable).apply {
+        // SettingsView owns its pinned header + its own scroll area, so the page just hosts it full-size.
+        return VerticalLayout(settingsView).apply {
             setSizeFull(); isPadding = false; isSpacing = false
-            style["overflow-y"] = "auto"
+            setFlexGrow(1.0, settingsView)
         }
     }
 
@@ -533,7 +544,10 @@ class MainView(
 
     private fun showNoResultsEmptyState() {
         emptyStateMessage.removeAll()
-        emptyStateMessage.add(Span("🔍").apply { style["font-size"] = "3rem" })
+        emptyStateMessage.add(Icon(VaadinIcon.SEARCH).apply {
+            setSize("3rem"); style["color"] = "var(--lumo-tertiary-text-color)"
+            element.setAttribute("aria-hidden", "true")
+        })
         emptyStateMessage.add(Span("No beans match your search or filters").apply {
             style["color"] = "var(--lumo-secondary-text-color)"
             style["font-size"] = "var(--lumo-font-size-s)"

@@ -5,10 +5,8 @@ import com.vaadin.flow.component.button.Button
 import com.vaadin.flow.component.button.ButtonVariant
 import com.vaadin.flow.component.html.Anchor
 import com.vaadin.flow.component.html.Div
-import com.vaadin.flow.component.html.H2
 import com.vaadin.flow.component.html.Span
 import com.vaadin.flow.component.icon.VaadinIcon
-import com.vaadin.flow.component.orderedlayout.HorizontalLayout
 import com.vaadin.flow.component.orderedlayout.VerticalLayout
 import com.vaadin.flow.component.select.Select
 import com.vaadin.flow.component.upload.Upload
@@ -50,36 +48,33 @@ class SettingsView(
 ) : VerticalLayout() {
 
     init {
-        isPadding = true
-        isSpacing = false
-        style["gap"] = "1rem"
-        style["align-items"] = "stretch"
+        setSizeFull(); isPadding = false; isSpacing = false
 
-        add(buildHeader())
-        add(buildDataCard())
-        add(buildPreferencesCard())
-        if (securityEnabled) add(buildSecurityCard())
+        // Pinned header (with the version chip), then the cards scroll below — consistent with the other tabs.
+        add(pageHeader("Settings", versionChip()))
+        val scroll = Div().apply {
+            setSizeFull(); style["overflow-y"] = "auto"; style["flex"] = "1"
+            style["padding"] = "1rem"; style["box-sizing"] = "border-box"
+            style["display"] = "flex"; style["flex-direction"] = "column"; style["gap"] = "1rem"
+            add(buildDataCard(), buildPreferencesCard())
+            if (securityEnabled) add(buildSecurityCard())
+        }
+        add(scroll)
+        setFlexGrow(1.0, scroll)
     }
 
-    /** "Settings" title with a muted version chip pinned to the right corner. */
-    private fun buildHeader(): HorizontalLayout {
-        val title = H2("Settings").apply { style["margin"] = "0" }
-        return HorizontalLayout(title).apply {
-            width = "100%"; isPadding = false; isSpacing = false
-            style["align-items"] = "baseline"; style["justify-content"] = "space-between"
-            appVersion?.let { version ->
-                add(Span("v$version").apply {
-                    setId("app-version")
-                    element.setAttribute("title", "App version")
-                    style["color"] = "var(--lumo-secondary-text-color)"
-                    style["font-size"] = "var(--lumo-font-size-xs)"; style["font-weight"] = "600"
-                    style["background"] = "var(--lumo-contrast-5pct)"
-                    style["border"] = "1px solid var(--lumo-contrast-10pct)"
-                    style["padding"] = "0.15rem 0.5rem"
-                    style["border-radius"] = "var(--lumo-border-radius-m)"
-                    style["white-space"] = "nowrap"
-                })
-            }
+    /** Muted "v{version}" chip shown in the header corner, or null when no build info is available. */
+    private fun versionChip(): Span? = appVersion?.let { version ->
+        Span("v$version").apply {
+            setId("app-version")
+            element.setAttribute("title", "App version")
+            style["color"] = "var(--lumo-secondary-text-color)"
+            style["font-size"] = "var(--lumo-font-size-xs)"; style["font-weight"] = "600"
+            style["background"] = "var(--lumo-contrast-5pct)"
+            style["border"] = "1px solid var(--lumo-contrast-10pct)"
+            style["padding"] = "0.15rem 0.5rem"
+            style["border-radius"] = "var(--lumo-border-radius-m)"
+            style["white-space"] = "nowrap"
         }
     }
 
