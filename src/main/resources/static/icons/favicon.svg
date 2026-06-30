@@ -1,0 +1,87 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Bean Book Favicon">
+  <defs>
+    <!-- Deepest velvet espresso-black radial background -->
+    <radialGradient id="bgNeural" cx="50%" cy="50%" r="75%">
+      <stop offset="0%" stop-color="#1F110A"/>
+      <stop offset="60%" stop-color="#0E0704"/>
+      <stop offset="100%" stop-color="#050201"/>
+    </radialGradient>
+
+    <!-- Warm Organic Coffee Roast Gradient -->
+    <linearGradient id="warmRoast" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFE066"/>
+      <stop offset="35%" stop-color="#F4A261"/>
+      <stop offset="75%" stop-color="#E76F51"/>
+      <stop offset="100%" stop-color="#9E4627"/>
+    </linearGradient>
+
+    <!-- Modern Futuristic AI Gradient: Royal Blue to Indigo/Violet -->
+    <linearGradient id="aiTech" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3B82F6"/>
+      <stop offset="45%" stop-color="#1F75FE"/>
+      <stop offset="100%" stop-color="#6366F1"/>
+    </linearGradient>
+
+    <!-- Glow Filter -->
+    <filter id="blueGlow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="12" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <!-- Deep Drop Shadow -->
+    <filter id="layerShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="16" stdDeviation="12" flood-color="#000000" flood-opacity="0.6"/>
+    </filter>
+  </defs>
+
+  <!-- Base Rounded Background -->
+  <rect width="512" height="512" rx="112" fill="url(#bgNeural)"/>
+
+  <!-- The Main Coffee Bean / Open Book Fusion (Simplified for Favicon scale) -->
+  <g filter="url(#layerShadow)" transform="translate(0, -10)">
+    <!-- LEFT HALF -->
+    <path d="M 256,120 
+             C 172,120 142,180 142,260 
+             C 142,340 182,390 256,390 
+             C 242,310 252,200 256,120 Z" 
+          fill="url(#aiTech)"/>
+
+    <!-- RIGHT HALF -->
+    <path d="M 256,120 
+             C 340,120 370,180 370,260 
+             C 370,340 330,390 256,390 
+             C 270,310 260,200 256,120 Z" 
+          fill="url(#warmRoast)"/>
+
+    <!-- CENTER SEAM: The iconic wavy coffee bean split (Highly readable) -->
+    <!-- Soft Blue Glow Behind Seam -->
+    <path d="M 256,120 
+             C 240,170 270,240 245,310 
+             C 235,340 245,370 256,390" 
+          fill="none" 
+          stroke="#1F75FE" 
+          stroke-width="18" 
+          stroke-linecap="round"
+          opacity="0.5"
+          filter="url(#blueGlow)"/>
+
+    <!-- Bright White Core of the split -->
+    <path d="M 256,120 
+             C 240,170 270,240 245,310 
+             C 235,340 245,370 256,390" 
+          fill="none" 
+          stroke="#FFFFFF" 
+          stroke-width="9" 
+          stroke-linecap="round"
+          filter="url(#blueGlow)"/>
+  </g>
+
+  <!-- Bright Intelligent Spark / Node at the crown -->
+  <g transform="translate(256, 110)">
+    <circle cx="0" cy="0" r="22" fill="#FFFFFF" filter="url(#blueGlow)"/>
+    <path d="M -12,0 L 12,0 M 0,-12 L 0,12" stroke="#1F75FE" stroke-width="5.5" stroke-linecap="round"/>
+  </g>
+</svg>

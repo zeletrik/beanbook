@@ -90,7 +90,12 @@ class MainView(
 
     /** Low-stock warning (AC-7–AC-10 / RULE-7, RULE-8). */
     internal val lowStockBanner = HorizontalLayout(
-        Icon(VaadinIcon.WARNING).apply { setSize("var(--lumo-icon-size-s)"); element.setAttribute("aria-hidden", "true") },
+        Icon(VaadinIcon.WARNING).apply {
+            setSize("var(--lumo-icon-size-s)"); element.setAttribute(
+            "aria-hidden",
+            "true"
+        )
+        },
         Span("No sealed bags in reserve — time to reorder!"),
     ).also {
         it.setId("low-stock-banner")
@@ -253,10 +258,11 @@ class MainView(
     }
 
     private fun applySystemTheme() {
-        UI.getCurrent()?.page?.executeJs("""
+        UI.getCurrent()?.page?.executeJs(
+            """
             document.documentElement.style.height = '100dvh';
             document.body.style.height = '100dvh';
-            const apply = (dark) => { document.documentElement.setAttribute('theme', dark ? 'dark' : ''); };
+            const apply = (dark) => { document.documentElement.setAttribute('theme', dark ? 'dark' : 'light'); };
             const mq = window.matchMedia('(prefers-color-scheme: dark)');
             apply(mq.matches);
             // Bind the change listener once per page — MainView is recreated on navigation, and
@@ -265,7 +271,8 @@ class MainView(
                 window.__beanbookThemeBound = true;
                 mq.addEventListener('change', (e) => apply(e.matches));
             }
-        """.trimIndent())
+        """.trimIndent()
+        )
     }
 
     internal fun navigateTo(tab: AppTab) {
@@ -285,23 +292,29 @@ class MainView(
      * screen readers a name for what would otherwise be an icon-only control.
      */
     private fun navTab(icon: VaadinIcon, label: String): Tab =
-        Tab(VerticalLayout(
-            Icon(icon),
-            Span(label).apply {
-                style["font-size"] = "var(--lumo-font-size-xxs)"
-                style["line-height"] = "1"
-            },
-        ).apply {
-            isPadding = false; isSpacing = false
-            style["align-items"] = "center"
-            style["gap"] = "2px"
-        }).apply { element.setAttribute("aria-label", label) }
+        Tab(
+            VerticalLayout(
+                Icon(icon),
+                Span(label).apply {
+                    style["font-size"] = "var(--lumo-font-size-xxs)"
+                    style["line-height"] = "1"
+                },
+            ).apply {
+                isPadding = false; isSpacing = false
+                style["align-items"] = "center"
+                style["gap"] = "2px"
+            }).apply { element.setAttribute("aria-label", label) }
 
     private fun updateFilterButton() {
         val count = filterState.activeFilterCount
         filterButton.text = if (count > 0) "Filter & Sort ($count)" else "Filter & Sort"
-        if (count > 0) filterButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY)
-        else filterButton.removeThemeVariants(ButtonVariant.LUMO_PRIMARY)
+        if (count > 0) {
+            filterButton.removeThemeVariants(ButtonVariant.LUMO_TERTIARY)
+            filterButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY)
+        } else {
+            filterButton.removeThemeVariants(ButtonVariant.LUMO_PRIMARY)
+            filterButton.addThemeVariants(ButtonVariant.LUMO_TERTIARY)
+        }
     }
 
     private fun showDetail(purchase: BeanPurchase) {
@@ -333,7 +346,13 @@ class MainView(
         purchasesScrollArea = Div(cardsLayout).apply {
             setSizeFull(); style["overflow-y"] = "auto"; style["flex"] = "1"
         }
-        return VerticalLayout(purchasesSearchBar, lowStockBanner, purchasesScrollArea, emptyStateMessage, detailView).apply {
+        return VerticalLayout(
+            purchasesSearchBar,
+            lowStockBanner,
+            purchasesScrollArea,
+            emptyStateMessage,
+            detailView
+        ).apply {
             setSizeFull(); isPadding = false; isSpacing = false
             setFlexGrow(1.0, purchasesScrollArea)
             setFlexGrow(1.0, detailView)
@@ -448,7 +467,8 @@ class MainView(
         val purchases = all.applyFilter(filterState)
         analyticsPanel.update(purchases)
         // Low-stock banner: shown only when list is non-empty AND zero sealed bags remain (RULE-7, RULE-8)
-        lowStockBanner.isVisible = !detailView.isVisible && all.isNotEmpty() && all.none { it.bagState == BagState.SEALED }
+        lowStockBanner.isVisible =
+            !detailView.isVisible && all.isNotEmpty() && all.none { it.bagState == BagState.SEALED }
 
         // The detail view covers the list; its page is rebuilt when it closes (hideDetail → refreshView),
         // so there's no point rendering cards into a hidden layout here.
@@ -462,12 +482,14 @@ class MainView(
                 purchasesScrollArea.isVisible = false
                 cardsLayout.isVisible = false
             }
+
             purchases.isEmpty() -> {
                 showNoResultsEmptyState()
                 emptyStateMessage.isVisible = true
                 purchasesScrollArea.isVisible = false
                 cardsLayout.isVisible = false
             }
+
             else -> {
                 val currency = preferencesService.getCurrency()
                 emptyStateMessage.isVisible = false

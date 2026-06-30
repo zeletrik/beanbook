@@ -90,20 +90,34 @@ class ManifestTest {
             "Expected image/svg+xml but was '$contentType'")
     }
 
-    // AC-14: icon contains coffee brown background
+    // AC-14: icon sits on the espresso brand background (issue #4 brand refresh).
     @Test
-    fun `icon-192 svg contains coffee brown fill`() {
+    fun `icon-192 svg uses the espresso brand background`() {
         val body = requireNotNull(get("/icons/icon-192.svg").body)
-        assertTrue(body.contains("#6B4226"), "icon-192 must contain fill #6B4226")
+        assertTrue(
+            body.contains("#1F110A") || body.contains("#0E0704"),
+            "icon-192 must use the espresso brand background (#1F110A / #0E0704)",
+        )
     }
 
-    // AC-15: icon contains centered text element (the ☕ symbol)
-    // Check for the white fill on the text element — encoding-safe proxy for ☕ presence
+    // AC-15: icon is the vector bean/book mark with the warm-roast accent, not the old emoji placeholder.
     @Test
-    fun `icon-192 svg contains centered text element with white fill`() {
+    fun `icon-192 svg is a vector mark with the warm roast accent`() {
         val body = requireNotNull(get("/icons/icon-192.svg").body)
-        assertTrue(body.contains("text-anchor=\"middle\""), "icon-192 must have a centered text element")
-        assertTrue(body.contains("fill=\"#FFFFFF\""), "icon-192 text must use white fill (#FFFFFF)")
+        assertTrue(body.contains("<path"), "icon-192 must be a vector mark (paths), not text/emoji")
+        assertTrue(
+            body.contains("#E76F51") || body.contains("#F4A261"),
+            "icon-192 must include the warm roast accent (#E76F51 / #F4A261)",
+        )
+    }
+
+    // AC-15: an SVG favicon is served for the browser tab.
+    @Test
+    fun `favicon svg is served as image svg+xml`() {
+        val resp = get("/icons/favicon.svg")
+        assertEquals(HttpStatus.OK, resp.statusCode)
+        val contentType = resp.headers.contentType?.toString() ?: ""
+        assertTrue(contentType.contains("image/svg+xml"), "Expected image/svg+xml but was '$contentType'")
     }
 
     // AC-16: manifest icons array contains 192×192 SVG entry
@@ -141,19 +155,19 @@ class ManifestTest {
         assertTrue(shortcutsSection.contains("icon-192.svg"), "shortcut must reference icon-192.svg")
     }
 
-    // AC-20: theme_color is coffee brown
+    // AC-20: theme_color is the espresso brand colour
     @Test
-    fun `manifest theme_color is coffee brown`() {
+    fun `manifest theme_color is espresso`() {
         val body = requireNotNull(get("/manifest.webmanifest").body)
-        assertTrue(body.contains("\"theme_color\": \"#6B4226\"") || body.contains("\"theme_color\":\"#6B4226\""),
-            "theme_color must be #6B4226")
+        assertTrue(body.contains("\"theme_color\": \"#120a07\"") || body.contains("\"theme_color\":\"#120a07\""),
+            "theme_color must be #120a07")
     }
 
-    // AC-21: background_color is warm cream
+    // AC-21: background_color (splash) is the espresso void so the dark icon blends in
     @Test
-    fun `manifest background_color is warm cream`() {
+    fun `manifest background_color is espresso void`() {
         val body = requireNotNull(get("/manifest.webmanifest").body)
-        assertTrue(body.contains("\"background_color\": \"#FDF6EC\"") || body.contains("\"background_color\":\"#FDF6EC\""),
-            "background_color must be #FDF6EC")
+        assertTrue(body.contains("\"background_color\": \"#0A0503\"") || body.contains("\"background_color\":\"#0A0503\""),
+            "background_color must be #0A0503")
     }
 }
