@@ -1,6 +1,5 @@
 package eu.zeletrik.beanbook.ui
 
-import com.vaadin.flow.component.Text
 import com.vaadin.flow.component.html.Anchor
 import com.vaadin.flow.component.html.Div
 import com.vaadin.flow.component.html.Image
@@ -9,15 +8,20 @@ import com.vaadin.flow.component.icon.Icon
 import com.vaadin.flow.component.icon.VaadinIcon
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout
 import com.vaadin.flow.component.orderedlayout.VerticalLayout
-import eu.zeletrik.beanbook.beans.BagState
 import eu.zeletrik.beanbook.beans.BeanPurchase
 
 /** Renders a single purchase as a tappable list row. [onOpen] fires when the row is clicked. */
 internal fun beanCard(purchase: BeanPurchase, currency: String, onOpen: () -> Unit): HorizontalLayout {
     val thumbnail = beanCardThumbnail(purchase)
     val details = beanCardDetails(purchase, currency)
-    // Right side: state badge pinned top, product-link icon (if any) pinned bottom — both right-aligned.
-    val horiz = HorizontalLayout().apply {
+
+    val chevron = Icon(VaadinIcon.ANGLE_RIGHT).apply {
+        setSize("1.5rem"); style["color"] = "var(--lumo-tertiary-text-color)"
+        style["flex-shrink"] = "0"
+        element.setAttribute("aria-hidden", "true")
+    }
+
+    val rightRow = HorizontalLayout().apply {
         isPadding = false; isSpacing = false
         style["gap"] = "0.75rem"
         width = "auto"; style["flex-shrink"] = "0"; style["align-self"] = "stretch"
@@ -35,22 +39,13 @@ internal fun beanCard(purchase: BeanPurchase, currency: String, onOpen: () -> Un
         isPadding = false; isSpacing = false
         width = "auto"; style["flex-shrink"] = "0"; style["align-self"] = "stretch"
         style["align-items"] = "flex-end"; style["justify-content"] = "space-between"
-        add(horiz)
-    }
-    val ratingText = purchase.rating.toStars()
-    if (ratingText.isNotEmpty()) {
-        rightCol.add(Span(ratingText).apply {
+        add(rightRow)
+        add(chevron)
+        add(Span( purchase.rating.toStars()).apply {
             style["font-size"] = "0.85rem"; style["letter-spacing"] = "0.04rem"
         })
     }
-
-    // Centred disclosure chevron signalling the whole row is tappable.
-    val chevron = Icon(VaadinIcon.ANGLE_RIGHT).apply {
-        setSize("1.5rem"); style["color"] = "var(--lumo-tertiary-text-color)"
-        style["flex-shrink"] = "0"
-        element.setAttribute("aria-hidden", "true")
-    }
-    return HorizontalLayout(thumbnail, details, rightCol, chevron).apply {
+    return HorizontalLayout(thumbnail, details, rightCol).apply {
         addClassName("bean-row")
         isSpacing = false; isPadding = true
         style["align-items"] = "center"; style["gap"] = "0.75rem"
@@ -113,15 +108,20 @@ private fun beanCardDetails(purchase: BeanPurchase, currency: String): VerticalL
     return VerticalLayout().apply {
         isPadding = false; isSpacing = false
         style["gap"] = "0.15rem"; style["flex"] = "1"; style["overflow"] = "hidden"
-        style["min-width"] = "0"
+        // min-width:0 lets this column shrink below its content so text truncates instead of pushing into
+        // the right side; align-items:stretch makes the children fill the column so ellipsis has a bound.
+        style["min-width"] = "0"; style["align-items"] = "stretch"
         add(Span(purchase.name).apply {
             style["font-weight"] = "600"; style["font-size"] = "var(--lumo-font-size-m)"
+            style["display"] = "block"; style["min-width"] = "0"
             style["overflow"] = "hidden"; style["text-overflow"] = "ellipsis"; style["white-space"] = "nowrap"
         })
         add(metaLine(VaadinIcon.SHOP, purchase.roaster))
         add(metaLine(VaadinIcon.MAP_MARKER, purchase.originLabel()))
         add(Span("${purchase.price.formatPrice(currency)}  ·  ${purchase.weightGrams} g").apply {
             style["font-size"] = "var(--lumo-font-size-s)"; style["color"] = "var(--lumo-secondary-text-color)"
+            style["display"] = "block"
+            style["overflow"] = "hidden"; style["text-overflow"] = "ellipsis"; style["white-space"] = "nowrap"
         })
     }
 }
@@ -146,11 +146,15 @@ private fun metaLine(icon: VaadinIcon, text: String): HorizontalLayout =
         Span(text).apply {
             style["color"] = "var(--lumo-secondary-text-color)"; style["font-size"] = "var(--lumo-font-size-s)"
             style["overflow"] = "hidden"; style["text-overflow"] = "ellipsis"; style["white-space"] = "nowrap"
+            // flex:1 + min-width:0 let the text shrink and ellipsize instead of overflowing under the badge.
+            style["flex"] = "1"; style["min-width"] = "0"
         },
     ).apply {
         isPadding = false; isSpacing = false
         style["gap"] = "0.4rem"
         style["align-items"] = "center"
+        // Fill the details column and allow the row itself to shrink so its text span can truncate.
+        width = "100%"; style["min-width"] = "0"; style["overflow"] = "hidden"
     }
 
 /**

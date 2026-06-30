@@ -39,8 +39,6 @@ class AnalyticsPanel(
     private val spendChartContainer = VerticalLayout().apply { isPadding = false; isSpacing = false; width = "100%" }
     private val originBarsContainer =
         VerticalLayout().apply { isPadding = false; isSpacing = false; style["gap"] = "0.4rem" }
-    private val beanSpendContainer =
-        VerticalLayout().apply { isPadding = false; isSpacing = false; style["gap"] = "0.25rem" }
     private val roasterSpendContainer =
         VerticalLayout().apply { isPadding = false; isSpacing = false; style["gap"] = "0.25rem" }
     private val brewMethodContainer =
@@ -133,7 +131,6 @@ class AnalyticsPanel(
             monthlyCostValue.text = "—"
             spendChartContainer.removeAll()
             originBarsContainer.removeAll()
-            beanSpendContainer.removeAll()
             roasterSpendContainer.removeAll()
             brewMethodContainer.removeAll()
             profileContainer.removeAll()
@@ -164,8 +161,7 @@ class AnalyticsPanel(
                 originBarsContainer.add(fullWidthBar(origin, count, maxOriginCount, "$count"))
             }
 
-        // Spend lists (side-by-side row)
-        buildSpendList(beanSpendContainer, analyticsService.totalSpendByBean(purchases))
+        // Spend by roaster list
         buildSpendList(roasterSpendContainer, analyticsService.totalSpendByRoaster(purchases))
 
         // Brew Method section

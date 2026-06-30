@@ -17,7 +17,7 @@ internal fun Enum<*>.displayName(): String = name.lowercase().replaceFirstChar(C
 internal fun Int?.toStars(): String = when (this) {
     ONE_STAR -> "★☆☆☆☆"; TWO_STARS -> "★★☆☆☆"; THREE_STARS -> "★★★☆☆"
     FOUR_STARS -> "★★★★☆"; FIVE_STARS -> "★★★★★"
-    else -> ""
+    else -> "☆☆☆☆☆"
 }
 
 /** Formats a money amount with the given currency symbol, e.g. "€18.50". */
