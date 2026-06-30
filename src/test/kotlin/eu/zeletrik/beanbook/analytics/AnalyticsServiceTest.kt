@@ -188,9 +188,24 @@ class AnalyticsServiceTest {
 
     // AC-27: most expensive roaster — happy path
     @Test
-    fun `mostExpensiveRoaster returns roaster with highest average price`() {
-        // Onyx: (22.00 + 42.00) / 2 = 32.00; Square Mile: (18.50 + 19.00) / 2 = 18.75
+    fun `mostExpensiveRoaster returns roaster with highest count-weighted average price`() {
+        // Same-weight bags (250 g), so ranking tracks price. Global mean = 117.50/5 = 23.50; smoothing C = 5.
+        // Onyx:           (64.00 + 5·23.50) / (2+5) = 25.929  ← highest
+        // Intelligentsia: (16.00 + 5·23.50) / (1+5) = 22.250
+        // Square Mile:    (37.50 + 5·23.50) / (2+5) = 22.143
         assertEquals("Onyx", service.mostExpensiveRoaster(samplePurchases))
+    }
+
+    // #26: count-weighting must stop one dear bag from topping a roaster that is consistently expensive.
+    @Test
+    fun `mostExpensiveRoaster shrinks a single dear bag below a consistently expensive roaster`() {
+        val budget = (1..4).map { purchase(roaster = "Budget", price = "5.00").copy(weightGrams = 100) }     // 0.05/g
+        val frequent = (1..5).map { purchase(roaster = "Frequent", price = "10.00").copy(weightGrams = 100) } // 0.10/g
+        val oneOff = listOf(purchase(roaster = "One-Off", price = "11.00").copy(weightGrams = 100))           // 0.11/g
+        // Plain mean would crown "One-Off" (0.11 > 0.10). Global mean €/g = 0.081, smoothing C = 5:
+        //   Frequent: (0.50 + 5·0.081) / (5+5) = 0.0905   ← highest
+        //   One-Off:  (0.11 + 5·0.081) / (1+5) = 0.08583
+        assertEquals("Frequent", service.mostExpensiveRoaster(budget + frequent + oneOff))
     }
 
     // AC-27: most expensive roaster — tie-breaking: lexicographically first
