@@ -20,7 +20,6 @@ import eu.zeletrik.beanbook.backup.ImportService
 import eu.zeletrik.beanbook.wishlist.WishlistItem
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -143,8 +142,9 @@ class ImportCurrencyWishlistTest {
         view.navigateTo(AppTab.WISHLIST) // Wishlist is the 4th tab (index 3)
 
         val wishlistView = view._find<WishlistView>().first()
-        wishlistView._get<com.vaadin.flow.component.textfield.TextField> { id = "wishlist-name" }.value = "New Wish Bean"
-        wishlistView._get<Button> { id = "wishlist-add-btn" }.click()
+        wishlistView.openAddDialog() // the add form lives in a modal opened on demand
+        _get<com.vaadin.flow.component.textfield.TextField> { id = "wishlist-name" }.value = "New Wish Bean"
+        _get<Button> { id = "wishlist-add-btn" }.click()
 
         assertEquals(1, wishlistStore.store.size, "Wishlist item must be saved")
         assertEquals("New Wish Bean", wishlistStore.store.first().name)
@@ -157,7 +157,8 @@ class ImportCurrencyWishlistTest {
         view.navigateTo(AppTab.WISHLIST)
 
         val wishlistView = view._find<WishlistView>().first()
-        wishlistView._get<Button> { id = "wishlist-add-btn" }.click()
+        wishlistView.openAddDialog()
+        _get<Button> { id = "wishlist-add-btn" }.click()
 
         assertTrue(wishlistStore.store.isEmpty(), "Empty name must not save a wishlist item")
         assertTrue(
@@ -196,15 +197,23 @@ class ImportCurrencyWishlistTest {
             "Empty state must be visible when wishlist is empty")
     }
 
-    // #3: the add form is a collapsible section, collapsed by default so it doesn't block the list
+    // #3: adding is a focused modal launched from the header "+ Add", keeping the list front-and-center
     @Test
-    fun `wishlist add form is collapsed by default`() {
+    fun `the add button opens a modal add form`() {
         val view = makeView()
         view.navigateTo(AppTab.WISHLIST)
 
         val wishlistView = view._find<WishlistView>().first()
-        val addSection = wishlistView._get<com.vaadin.flow.component.details.Details> { id = "wishlist-add-section" }
-        assertFalse(addSection.isOpened, "Add form should start collapsed")
+        // No add fields are mounted until the modal is opened.
+        assertTrue(_find<com.vaadin.flow.component.textfield.TextField> { id = "wishlist-name" }.isEmpty())
+
+        wishlistView._get<Button> { id = "wishlist-open-add-btn" }.click()
+
+        assertTrue(
+            _find<com.vaadin.flow.component.textfield.TextField> { id = "wishlist-name" }.isNotEmpty(),
+            "the + Add button opens the add form",
+        )
+        assertTrue(_find<Button> { id = "wishlist-add-btn" }.isNotEmpty(), "the modal exposes the Add action")
     }
 
     // #3: adding a wishlist item with a link normalises and stores the url
@@ -214,9 +223,10 @@ class ImportCurrencyWishlistTest {
         view.navigateTo(AppTab.WISHLIST)
 
         val wishlistView = view._find<WishlistView>().first()
-        wishlistView._get<com.vaadin.flow.component.textfield.TextField> { id = "wishlist-name" }.value = "Linked Wish"
-        wishlistView._get<com.vaadin.flow.component.textfield.TextField> { id = "wishlist-url" }.value = "roaster.com/wish"
-        wishlistView._get<Button> { id = "wishlist-add-btn" }.click()
+        wishlistView.openAddDialog()
+        _get<com.vaadin.flow.component.textfield.TextField> { id = "wishlist-name" }.value = "Linked Wish"
+        _get<com.vaadin.flow.component.textfield.TextField> { id = "wishlist-url" }.value = "roaster.com/wish"
+        _get<Button> { id = "wishlist-add-btn" }.click()
 
         assertEquals("https://roaster.com/wish", wishlistStore.store.first { it.name == "Linked Wish" }.url)
     }

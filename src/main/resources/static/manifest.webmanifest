@@ -6,8 +6,8 @@
   "description": "Track your coffee bean purchases, roasts, and brewing notes.",
   "display": "standalone",
   "start_url": "/",
-  "theme_color": "#6B4226",
-  "background_color": "#FDF6EC",
+  "theme_color": "#120a07",
+  "background_color": "#0A0503",
   "icons": [
     {
       "src": "/icons/icon-192.svg",

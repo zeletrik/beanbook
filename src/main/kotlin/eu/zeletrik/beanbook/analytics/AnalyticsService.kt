@@ -14,6 +14,17 @@ data class MonthlySpend(val month: YearMonth, val total: BigDecimal)
 @Service
 class AnalyticsService {
 
+    private companion object {
+        /**
+         * Pseudo-count for the "Priciest Roaster" Bayesian average. Each roaster's mean €/g is shrunk
+         * toward the global mean by this many imaginary purchases, so a roaster with a single dear bag
+         * doesn't outrank one that is consistently expensive across many. Lower = trust thin samples more;
+         * 5 means a one-bag roaster is weighted as ~⅙ its own price + ⅚ the global average, so only a
+         * genuinely extreme single bag can top a roaster with a long, mixed history.
+         */
+        const val ROASTER_PRICE_SMOOTHING = 5L
+    }
+
     fun totalCost(purchases: List<BeanPurchase>): BigDecimal =
         purchases.fold(BigDecimal.ZERO) { acc, p -> acc + p.price }
 
@@ -75,20 +86,26 @@ class AnalyticsService {
         price.divide(BigDecimal(weightGrams), 10, RoundingMode.HALF_UP)
 
     /**
-     * The roaster whose beans are priciest on average, normalised by weight (mean price per gram)
-     * so a roaster of small premium bags isn't beaten by one selling large cheap ones. Ties break
-     * by alphabetical roaster name.
+     * The roaster whose beans are priciest on average, normalised by weight (price per gram). The mean
+     * is count-weighted (a Bayesian shrinkage toward the global mean €/g via [ROASTER_PRICE_SMOOTHING])
+     * so a roaster with a single dear bag is pulled toward the average and can't outrank one that is
+     * consistently expensive across many purchases. Ties break by alphabetical roaster name.
      */
     fun mostExpensiveRoaster(purchases: List<BeanPurchase>): String? {
         if (purchases.isEmpty()) return null
-        val avgPerGramByRoaster = purchases.groupBy { it.roaster }
+        val smoothing = BigDecimal(ROASTER_PRICE_SMOOTHING)
+        val globalMean = purchases.fold(BigDecimal.ZERO) { acc, p -> acc + p.pricePerGram() }
+            .divide(BigDecimal(purchases.size), 10, RoundingMode.HALF_UP)
+        val adjustedByRoaster = purchases.groupBy { it.roaster }
             .mapValues { (_, ps) ->
-                ps.fold(BigDecimal.ZERO) { acc, p -> acc + p.pricePerGram() }
-                    .divide(BigDecimal(ps.size), 10, RoundingMode.HALF_UP)
+                val sumPerGram = ps.fold(BigDecimal.ZERO) { acc, p -> acc + p.pricePerGram() }
+                // adjusted = (Σ price/g + smoothing · globalMean) / (count + smoothing)
+                (sumPerGram + smoothing.multiply(globalMean))
+                    .divide(BigDecimal(ps.size) + smoothing, 10, RoundingMode.HALF_UP)
             }
-        val maxAverage = avgPerGramByRoaster.values.max()
-        return avgPerGramByRoaster
-            .filter { (_, avg) -> avg == maxAverage }
+        val maxAdjusted = adjustedByRoaster.values.max()
+        return adjustedByRoaster
+            .filter { (_, adjusted) -> adjusted == maxAdjusted }
             .keys
             .minOrNull()
     }

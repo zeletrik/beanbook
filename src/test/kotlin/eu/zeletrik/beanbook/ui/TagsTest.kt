@@ -108,6 +108,16 @@ class TagsTest {
         assertTrue(tagsText.contains("natural"), "Tags row must contain 'natural', was: $tagsText")
     }
 
+    // Regression: opening Edit for a bean WITH tags must not throw a BindingException. The tag items
+    // have to be seeded before the binder pushes the value into the MultiSelectComboBox on setBean.
+    @Test
+    fun `editing a bean with tags populates the tags field without error`() {
+        val tagged = purchase(name = "Tagged", tags = setOf("fruity", "natural"))
+        val view = makeView(listOf(tagged))
+        view.addFormContent.openForEdit(tagged) // previously threw BindingException for [label='Tags']
+        assertEquals(setOf("fruity", "natural"), view.addFormContent.tagsField.value)
+    }
+
     // AC-6: (c) Bean with no tags shows no tags section in detail view
     @Test
     fun `bean with no tags shows no tags section in detail view`() {

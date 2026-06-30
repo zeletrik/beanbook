@@ -8,9 +8,7 @@ import com.vaadin.flow.component.button.ButtonVariant
 import com.vaadin.flow.component.combobox.ComboBox
 import com.vaadin.flow.component.combobox.MultiSelectComboBox
 import com.vaadin.flow.component.datepicker.DatePicker
-import com.vaadin.flow.component.details.Details
 import com.vaadin.flow.component.formlayout.FormLayout
-import com.vaadin.flow.component.html.H4
 import com.vaadin.flow.component.html.Image
 import com.vaadin.flow.component.html.Span
 import com.vaadin.flow.component.icon.Icon
@@ -173,6 +171,7 @@ class PurchaseFormContent(
     }
     internal val currentImageDisplay = Image().also {
         it.setId("current-image")
+        it.setAlt("Current bean photo")
         it.isVisible = false
         it.setHeight("80px")
     }
@@ -196,27 +195,52 @@ class PurchaseFormContent(
         }
     }.apply { addThemeVariants(ButtonVariant.LUMO_PRIMARY) }
 
-    // ── Optional, collapsible sections (collapsed on create; opened on edit when they hold data) ──
-    internal val tastingDetails = Details(
-        "Tasting notes & tags",
-        FormLayout(ratingField, tagsField, grindSettingsField, notesField),
+    // ── Always-open card sections (coherent with the rest of the app — see UiComponents.sectionCard) ──
+    // Photo leads: uploading the bag is the natural first step and — when AI is on — powers auto-fill.
+    internal val photoSection = sectionCard(
+        VaadinIcon.CAMERA, "#2e8b57",
+        "Photo", if (autoFillButton != null) "Add a bag photo to auto-fill the details." else "Add a bag photo.",
+        *listOfNotNull<Component>(
+            existingImageLabel, currentImageDisplay, uploadComponent, uploadHint, uploadErrorLabel,
+            autoFillButton?.apply { style["align-self"] = "flex-start" },
+        ).toTypedArray(),
+    ).apply { setId("section-photo") }
+
+    private val beanSection = sectionCard(
+        VaadinIcon.COFFEE, "var(--lumo-primary-color)",
+        "Bean", "What bean is this?",
+        *listOfNotNull<Component>(
+            FormLayout(nameField, roasterField, originField, regionField),
+            linkField,
+            autoFillFromLinkButton?.apply { style["align-self"] = "flex-start" },
+        ).toTypedArray(),
+    ).apply { setId("section-bean") }
+
+    private val roastSection = sectionCard(
+        VaadinIcon.FIRE, "#c25e00",
+        "Roast", "How it was roasted.",
+        FormLayout(roastLevelField, processField, roastProfileField, roastDateField),
+    ).apply { setId("section-roast") }
+
+    private val purchaseSection = sectionCard(
+        VaadinIcon.CART, "#e6a817",
+        "Purchase", "What you paid, and when.",
+        FormLayout(priceField, weightField, purchaseDateField),
+    ).apply { setId("section-purchase") }
+
+    private val tastingSection = sectionCard(
+        VaadinIcon.STAR, "#7c4dff",
+        "Tasting notes & tags", "Your rating, tags, grind, and notes.",
+        FormLayout(ratingField, tagsField, grindSettingsField, notesField).apply {
+            setColspan(tagsField, 2); setColspan(notesField, 2)
+        },
     ).apply { setId("section-tasting") }
 
-    internal val trackingDetails = Details(
-        "Bag tracking",
+    private val trackingSection = sectionCard(
+        VaadinIcon.CLOCK, "#2e7d9c",
+        "Bag tracking", "When you opened and finished it.",
         FormLayout(openedDateField, finishedDateField),
     ).apply { setId("section-tracking") }
-
-    internal val photoDetails = Details(
-        "Photo",
-        VerticalLayout(existingImageLabel, currentImageDisplay, uploadComponent, uploadHint, uploadErrorLabel)
-            .apply {
-                isPadding = false
-                isSpacing = false
-                // Only present when the AI feature is enabled; sits below the upload as a follow-up action.
-                autoFillButton?.let { add(it) }
-            },
-    ).apply { setId("section-photo") }
 
     init {
         isPadding = false
@@ -276,29 +300,22 @@ class PurchaseFormContent(
             roastDateField.clearMarkOnEdit()
         }
 
-        // Essentials are always visible; everything optional is tucked into collapsible sections so
-        // adding a bean isn't a 16-field wall. Required fields are never hidden behind a collapse.
-        val essentials = FormLayout(
-            nameField, roasterField, originField, regionField,
-            roastLevelField, processField, roastProfileField,
-            priceField, weightField,
-            purchaseDateField, roastDateField,
-        )
-
-        val buttons = if (onCancel != null) {
-            HorizontalLayout(saveButton, Button("Cancel") { onCancel.invoke() })
-        } else {
-            HorizontalLayout(saveButton)
+        // A floating Save bar pinned to the bottom of the scroll area, so saving never requires
+        // scrolling past the always-open cards. Cancel appears only when hosted in the edit dialog.
+        saveButton.style["flex"] = "1"; saveButton.style["min-height"] = "44px"
+        val actionBar = HorizontalLayout(saveButton).apply {
+            setId("form-actions")
+            width = "100%"; isPadding = false; isSpacing = true
+            style["position"] = "sticky"; style["bottom"] = "0"; style["z-index"] = "5"
+            style["margin-top"] = "0.5rem"; style["padding"] = "0.75rem 0"
+            style["align-items"] = "center"
+            style["background"] = "var(--lumo-base-color)"
+            style["border-top"] = "1px solid var(--lumo-contrast-10pct)"
+            style["box-shadow"] = "0 -2px 8px rgba(0,0,0,0.06)"
+            onCancel?.let { cancel -> add(Button("Cancel") { cancel.invoke() }.apply { style["min-height"] = "44px" }) }
         }
 
-        // The Link field gains an "Auto-fill from link" action when AI is on; otherwise it stands alone.
-        val linkSection: Component = autoFillFromLinkButton?.let {
-            VerticalLayout(linkField, it).apply { isPadding = false; isSpacing = false; width = "100%" }
-        } ?: linkField
-
-        // Photo leads the form: uploading the bag is the natural first step and — when AI is enabled —
-        // powers "Auto-fill from photo", so it sits up front rather than trailing as an afterthought.
-        add(photoDetails, essentials, linkSection, tastingDetails, trackingDetails, buttons)
+        add(photoSection, beanSection, roastSection, purchaseSection, tastingSection, trackingSection, actionBar)
     }
 
     private fun showUploadError(message: String) {
@@ -398,7 +415,6 @@ class PurchaseFormContent(
         if (notesField.value.isBlank() && !extraction.notes.isNullOrBlank()) {
             notesField.value = extraction.notes
             markAi(notesField)
-            tastingDetails.isOpened = true
         }
     }
 
@@ -507,14 +523,6 @@ class PurchaseFormContent(
         currentImageDisplay.isVisible = false
         existingImageLabel.isVisible = false
         uploadErrorLabel.isVisible = false
-        collapseOptionalSections()
-        // Open on create so the upload (and the AI auto-fill action) is visible up front, not buried.
-        photoDetails.isOpened = true
-    }
-
-    private fun collapseOptionalSections() {
-        tastingDetails.isOpened = false
-        trackingDetails.isOpened = false
     }
 
     fun openForEdit(purchase: BeanPurchase) {
@@ -523,6 +531,9 @@ class PurchaseFormContent(
         clearAiMarks()
         clearUploadState()
         roasterField.setItems(getAllRoasters())
+        // Seed the tag items (incl. this purchase's own tags) BEFORE setting the bean: the binder pushes
+        // the value into the MultiSelectComboBox on setBean, and it rejects values absent from its items.
+        tagsField.setItems(getAllTags() + purchase.tags)
         binder.bean = PurchaseFormBean().apply {
             name = purchase.name
             roaster = purchase.roaster
@@ -545,7 +556,6 @@ class PurchaseFormContent(
             tags = purchase.tags
             url = purchase.url ?: ""
         }
-        tagsField.setItems(getAllTags())
         if (purchase.imageData != null) {
             currentImageDisplay.setSrc(
                 com.vaadin.flow.server.streams.InputStreamDownloadHandler { _ ->
@@ -563,11 +573,6 @@ class PurchaseFormContent(
             existingImageLabel.isVisible = false
         }
         uploadErrorLabel.isVisible = false
-        // Reveal optional sections that already hold data so editing doesn't hide existing values.
-        tastingDetails.isOpened = purchase.rating != null || purchase.tags.isNotEmpty() ||
-            !purchase.grindSettings.isNullOrBlank() || !purchase.notes.isNullOrBlank()
-        trackingDetails.isOpened = purchase.openedDate != null || purchase.finishedDate != null
-        photoDetails.isOpened = purchase.imageData != null
     }
 
     private fun clearUploadState() {
@@ -596,12 +601,11 @@ class PurchaseFormContent(
         pendingImageData = source.imageData
         roastProfileField.value = source.roastProfile
         binder.bean.usedAs = source.usedAs
+        // Ensure the source's tags are valid items before selecting them (see openForEdit).
+        tagsField.setItems(getAllTags() + source.tags)
         tagsField.value = source.tags
         // The product/roaster link is profile data — a re-purchase points at the same page.
         linkField.value = source.url ?: ""
         // Transaction fields (price, weight, dates, rating) remain empty from openForCreate()
-        // Reveal the tasting section so the carried-over notes/tags/grind are visible.
-        tastingDetails.isOpened = source.tags.isNotEmpty() ||
-            !source.notes.isNullOrBlank() || !source.grindSettings.isNullOrBlank()
     }
 }

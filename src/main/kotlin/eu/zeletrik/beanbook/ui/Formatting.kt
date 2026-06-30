@@ -13,7 +13,7 @@ private const val FIVE_STARS = 5
 /** "MEDIUM" → "Medium". Single home for the enum-label formatting used across the UI. */
 internal fun Enum<*>.displayName(): String = name.lowercase().replaceFirstChar(Char::uppercase)
 
-/** Star rating as filled/empty stars; empty string for null or 0. */
+/** Star rating as filled/empty stars; empty string for null or 0 (so unrated beans render nothing). */
 internal fun Int?.toStars(): String = when (this) {
     ONE_STAR -> "★☆☆☆☆"; TWO_STARS -> "★★☆☆☆"; THREE_STARS -> "★★★☆☆"
     FOUR_STARS -> "★★★★☆"; FIVE_STARS -> "★★★★★"

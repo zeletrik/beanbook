@@ -1,10 +1,10 @@
 package eu.zeletrik.beanbook.ui
 
+import com.vaadin.flow.component.Component
 import com.vaadin.flow.component.button.Button
 import com.vaadin.flow.component.button.ButtonVariant
 import com.vaadin.flow.component.html.Anchor
-import com.vaadin.flow.component.html.H3
-import com.vaadin.flow.component.html.Hr
+import com.vaadin.flow.component.html.Div
 import com.vaadin.flow.component.html.Span
 import com.vaadin.flow.component.icon.VaadinIcon
 import com.vaadin.flow.component.orderedlayout.VerticalLayout
@@ -25,7 +25,12 @@ private val log = LoggerFactory.getLogger(SettingsView::class.java)
 /** 20 MB cap on the import upload — backups can contain many base64-encoded images. */
 private const val MAX_IMPORT_BYTES = 20 * 1024 * 1024
 
-/** Settings view exposing data export, import, and user preferences such as the display currency. */
+/**
+ * Settings view exposing data export, import, and user preferences such as the display currency.
+ *
+ * Laid out with the shared card language (`UiComponents.sectionCard` / `pageHeader` / `iconCircle`) so it
+ * reads as part of the same product as the rest of the app.
+ */
 class SettingsView(
     private val exportService: ExportService,
     private val importService: ImportService,
@@ -36,17 +41,45 @@ class SettingsView(
     private val securityEnabled: Boolean = false,
     /** Invoked when the user clicks "Log out"; wired to Vaadin's AuthenticationContext.logout(). */
     private val onLogout: () -> Unit = {},
+    /** App version shown as a muted chip in the header; null (dev/test) hides the chip. */
+    private val appVersion: String? = null,
 ) : VerticalLayout() {
 
-    private val exportAnchor: Anchor
-
     init {
-        isPadding = true
-        isSpacing = true
+        setSizeFull(); isPadding = false; isSpacing = false
 
-        // ── Export ────────────────────────────────────────────────
-        // The supplier runs on a background request thread, so it must not touch the UI. On
-        // failure we log and rethrow rather than serving a 0-byte file as a successful download.
+        // Pinned header (with the version chip), then the cards scroll below — consistent with the other tabs.
+        add(pageHeader("Settings", versionChip()))
+        val scroll = Div().apply {
+            setSizeFull(); style["overflow-y"] = "auto"; style["flex"] = "1"
+            style["padding"] = "1rem"; style["box-sizing"] = "border-box"
+            style["display"] = "flex"; style["flex-direction"] = "column"; style["gap"] = "1rem"
+            add(buildDataCard(), buildPreferencesCard())
+            if (securityEnabled) add(buildSecurityCard())
+        }
+        add(scroll)
+        setFlexGrow(1.0, scroll)
+    }
+
+    /** Muted "v{version}" chip shown in the header corner, or null when no build info is available. */
+    private fun versionChip(): Span? = appVersion?.let { version ->
+        Span("v$version").apply {
+            setId("app-version")
+            element.setAttribute("title", "App version")
+            style["color"] = "var(--lumo-secondary-text-color)"
+            style["font-size"] = "var(--lumo-font-size-xs)"; style["font-weight"] = "600"
+            style["background"] = "var(--lumo-contrast-5pct)"
+            style["border"] = "1px solid var(--lumo-contrast-10pct)"
+            style["padding"] = "0.15rem 0.5rem"
+            style["border-radius"] = "var(--lumo-border-radius-m)"
+            style["white-space"] = "nowrap"
+        }
+    }
+
+    // ── Data ──────────────────────────────────────────────────────
+    private fun buildDataCard(): Div {
+        // The supplier runs on a background request thread, so it must not touch the UI. On failure we
+        // log and rethrow rather than serving a 0-byte file as a successful download.
         val exportResource = StreamResource("beanbook-export-${LocalDate.now()}.json") {
             try {
                 ByteArrayInputStream(exportService.generateJson())
@@ -55,26 +88,16 @@ class SettingsView(
                 throw e
             }
         }
-
-        exportAnchor = Anchor(exportResource, "Export Data").apply {
+        val exportAnchor = Anchor(exportResource, "Export Data").apply {
             setId("export-data-btn")
             element.setAttribute("download", true)
-            style["display"] = "inline-flex"
-            style["align-items"] = "center"
-            style["padding"] = "0.5rem 1rem"
-            style["background"] = "var(--lumo-primary-color)"
-            style["color"] = "var(--lumo-primary-contrast-color)"
-            style["border-radius"] = "var(--lumo-border-radius-m)"
-            style["text-decoration"] = "none"
-            style["font-weight"] = "600"
+            styleAsButton(primary = true)
         }
 
-        add(exportAnchor)
-
-        // ── Import ────────────────────────────────────────────────
         val importBuffer = MemoryBuffer()
         val importUpload = Upload(importBuffer).apply {
             setId("import-upload")
+            width = "100%"
             setAcceptedFileTypes("application/json", ".json")
             setMaxFileSize(MAX_IMPORT_BYTES)
             addSucceededListener {
@@ -91,25 +114,22 @@ class SettingsView(
             }
         }
 
-        add(Span("Import Data").apply {
-            style["font-weight"] = "600"
-            style["font-size"] = "var(--lumo-font-size-s)"
-        })
-        add(importUpload)
+        return sectionCard(
+            VaadinIcon.DATABASE, "#2e7d9c",
+            "Data", "Back up your collection or restore it from a file.",
+            controlWithHelper(exportAnchor, "Download everything as a JSON file."),
+            controlWithHelper(importUpload, "Restore from a JSON backup (max 20 MB)."),
+        )
+    }
 
-        add(Hr())
-
-        // ── Preferences ───────────────────────────────────────────
-        add(H3("Preferences"))
-
-        add(Span("Currency").apply {
-            style["font-size"] = "var(--lumo-font-size-s)"
-            style["color"] = "var(--lumo-secondary-text-color)"
-        })
-
+    // ── Preferences ───────────────────────────────────────────────
+    private fun buildPreferencesCard(): Div {
         val currencyOptions = listOf("€", "$", "£", "¥", "CHF")
         val currencySelect = Select<String>().apply {
             setId("currency-select")
+            label = "Currency"
+            helperText = "Shown next to every price across the app."
+            width = "12rem"
             setItemLabelGenerator { it }
             setItems(*currencyOptions.toTypedArray())
             value = preferencesService.getCurrency()
@@ -120,34 +140,58 @@ class SettingsView(
                 }
             }
         }
-        add(currencySelect)
+        return sectionCard(
+            VaadinIcon.COG, "#7c4dff",
+            "Preferences", "Personalise how Bean Book looks and behaves.",
+            currencySelect,
+        )
+    }
 
-        // ── Security ──────────────────────────────────────────────
-        // Only meaningful when auth is enabled; the /webauthn/register page is a Spring-rendered page
-        // (router-ignore forces a full navigation so Spring's filter serves it, not Vaadin's router).
-        if (securityEnabled) {
-            add(Hr())
-            add(H3("Security"))
-            add(Span("Register this device as a passkey, or remove existing ones.").apply {
-                style["font-size"] = "var(--lumo-font-size-s)"
-                style["color"] = "var(--lumo-secondary-text-color)"
-            })
-            add(Anchor("webauthn/register", "Manage passkeys").apply {
-                setId("manage-passkeys-link")
-                element.setAttribute("router-ignore", true)
-                style["display"] = "inline-flex"
-                style["align-items"] = "center"
-                style["padding"] = "0.5rem 1rem"
-                style["background"] = "var(--lumo-contrast-5pct)"
-                style["color"] = "var(--lumo-body-text-color)"
-                style["border-radius"] = "var(--lumo-border-radius-m)"
-                style["text-decoration"] = "none"
-                style["font-weight"] = "600"
-            })
-            add(Button("Log out", VaadinIcon.SIGN_OUT.create()) { onLogout() }.apply {
-                setId("logout-btn")
-                addThemeVariants(ButtonVariant.LUMO_TERTIARY)
-            })
+    // ── Security ──────────────────────────────────────────────────
+    // Only meaningful when auth is enabled; the /webauthn/register page is a Spring-rendered page
+    // (router-ignore forces a full navigation so Spring's filter serves it, not Vaadin's router).
+    private fun buildSecurityCard(): Div {
+        val managePasskeys = Anchor("webauthn/register", "Manage passkeys").apply {
+            setId("manage-passkeys-link")
+            element.setAttribute("router-ignore", true)
+            styleAsButton(primary = false)
+        }
+        val logout = Button("Log out", VaadinIcon.SIGN_OUT.create()) { onLogout() }.apply {
+            setId("logout-btn")
+            addThemeVariants(ButtonVariant.LUMO_TERTIARY)
+            style["min-height"] = "44px"
+            style["align-self"] = "flex-start"
+        }
+        return sectionCard(
+            VaadinIcon.LOCK, "#c25e00",
+            "Security", "Manage passkeys for this device, or sign out.",
+            controlWithHelper(managePasskeys, "Add this device as a passkey, or remove existing ones."),
+            logout,
+        )
+    }
+
+    // Card + icon-circle styling lives in UiComponents.kt (shared with the purchase form).
+
+    /** A control with a small muted helper line beneath it. */
+    private fun controlWithHelper(control: Component, helper: String): Div =
+        Div(control, Span(helper).apply {
+            style["color"] = "var(--lumo-secondary-text-color)"; style["font-size"] = "var(--lumo-font-size-xs)"
+        }).apply {
+            style["display"] = "flex"; style["flex-direction"] = "column"
+            style["gap"] = "0.3rem"; style["align-items"] = "flex-start"; style["width"] = "100%"
+        }
+
+    /** Styles an [Anchor] to read as a 44px Lumo button (primary fill or subtle secondary). */
+    private fun Anchor.styleAsButton(primary: Boolean) {
+        style["display"] = "inline-flex"; style["align-items"] = "center"; style["justify-content"] = "center"
+        style["gap"] = "0.5rem"; style["min-height"] = "44px"; style["padding"] = "0 1.25rem"
+        style["border-radius"] = "var(--lumo-border-radius-m)"; style["text-decoration"] = "none"
+        style["font-weight"] = "600"; style["box-sizing"] = "border-box"
+        if (primary) {
+            style["background"] = "var(--lumo-primary-color)"; style["color"] = "var(--lumo-primary-contrast-color)"
+        } else {
+            style["background"] = "var(--lumo-contrast-5pct)"; style["color"] = "var(--lumo-body-text-color)"
+            style["border"] = "1px solid var(--lumo-contrast-10pct)"
         }
     }
 

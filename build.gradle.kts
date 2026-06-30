@@ -57,6 +57,12 @@ kotlin {
     }
 }
 
+// Generates META-INF/build-info.properties at build time so Spring auto-registers a BuildProperties
+// bean; the UI reads build.version (the project version from gradle.properties) to show "v1.4.0".
+springBoot {
+    buildInfo()
+}
+
 tasks {
     test {
         useJUnitPlatform()
