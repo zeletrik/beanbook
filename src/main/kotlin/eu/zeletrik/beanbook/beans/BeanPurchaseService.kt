@@ -50,13 +50,19 @@ class BeanPurchaseService(
     }
 
     /**
-     * Trims and collapses internal whitespace, then — if the cleaned value matches one already in
-     * [existing] ignoring case — reuses that spelling (first-seen casing wins), else keeps the cleaned
-     * input. Preserves intentional brand casing (e.g. "DAK Coffee Roasters") for genuinely new values.
+     * Trims and collapses internal whitespace, then — if the cleaned value matches existing values
+     * ignoring case — reuses the **most-used** existing spelling (ties broken alphabetically), else keeps
+     * the cleaned input. The most-used/alphabetical rule is deterministic regardless of [existing] order,
+     * so legacy case-duplicates collapse to one stable canonical; intentional brand casing (e.g.
+     * "DAK Coffee Roasters") is preserved for genuinely new values.
      */
     private fun canonical(value: String, existing: Collection<String>): String {
         val cleaned = value.trim().replace(WHITESPACE, " ")
-        return existing.firstOrNull { it.equals(cleaned, ignoreCase = true) } ?: cleaned
+        val matches = existing.filter { it.equals(cleaned, ignoreCase = true) }
+        if (matches.isEmpty()) return cleaned
+        return matches.groupingBy { it }.eachCount().entries
+            .sortedWith(compareByDescending<Map.Entry<String, Int>> { it.value }.thenBy { it.key })
+            .first().key
     }
 
     /** Like [canonical], but a blank/whitespace-only value normalizes to `null` (region is optional). */

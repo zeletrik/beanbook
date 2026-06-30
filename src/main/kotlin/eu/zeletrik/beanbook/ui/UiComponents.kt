@@ -28,7 +28,9 @@ internal fun iconCircle(
         style["color"] = color; style["width"] = iconSize; style["height"] = iconSize
     }).apply {
         style["width"] = circleSize; style["height"] = circleSize; style["border-radius"] = "50%"
-        style["background"] = "${color}1a" // ~10% alpha over the accent
+        // ~10% tint of the accent. color-mix (not "${color}1a") so it also works when [color] is a CSS
+        // custom property like var(--lumo-primary-color) — string-appending alpha there is invalid CSS.
+        style["background"] = "color-mix(in srgb, $color 10%, transparent)"
         style["display"] = "flex"; style["align-items"] = "center"; style["justify-content"] = "center"
         style["flex-shrink"] = "0"
     }

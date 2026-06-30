@@ -35,14 +35,19 @@ internal fun beanCard(purchase: BeanPurchase, currency: String, onOpen: () -> Un
             )
         }
     }
+    // One compact column: badge/link (top), chevron (middle), rating (bottom). The three slots are
+    // distributed with space-between; when the bean is unrated the bottom slot is an equal-height but
+    // invisible placeholder, so the chevron stays centered (no 0-star shown, no extra width or shift).
+    val stars = purchase.rating.toStars()
     val rightCol = VerticalLayout().apply {
         isPadding = false; isSpacing = false
         width = "auto"; style["flex-shrink"] = "0"; style["align-self"] = "stretch"
         style["align-items"] = "flex-end"; style["justify-content"] = "space-between"
         add(rightRow)
         add(chevron)
-        add(Span( purchase.rating.toStars()).apply {
+        add(Span(stars.ifEmpty { "☆☆☆☆☆" }).apply {
             style["font-size"] = "0.85rem"; style["letter-spacing"] = "0.04rem"
+            if (stars.isEmpty()) style["visibility"] = "hidden"
         })
     }
     return HorizontalLayout(thumbnail, details, rightCol).apply {
@@ -83,26 +88,6 @@ private fun beanCardThumbnail(purchase: BeanPurchase): Div =
             style["flex-shrink"] = "0"
         }
     }
-
-/**
- *
- *         HorizontalLayout(
- *             Icon(icon).apply {
- *                 setSize("1rem")
- *                 style["color"] = "var(--lumo-secondary-text-color)"
- *                 style["flex"] = "0 0 auto"
- *                 element.setAttribute("aria-hidden", "true")
- *             },
- *             Span(text).apply {
- *                 style["color"] = "var(--lumo-secondary-text-color)"
- *                 style["overflow-wrap"] = "anywhere"
- *             },
- *         ).apply {
- *             isPadding = false; isSpacing = false
- *             style["gap"] = "0.4rem"
- *             style["align-items"] = "center"
- *         }
- */
 
 private fun beanCardDetails(purchase: BeanPurchase, currency: String): VerticalLayout {
     return VerticalLayout().apply {

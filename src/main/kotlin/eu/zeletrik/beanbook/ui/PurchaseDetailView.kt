@@ -192,7 +192,7 @@ class PurchaseDetailView(
                 style["margin-top"] = "0.15rem"
             })
         }
-        // Compact thumbnail to the left, identity fills the rest; top-aligned so the photo sits with the name.
+        // Identity fills the left; the compact thumbnail sits on the right, top-aligned with the name.
         return HorizontalLayout(identity, buildPhoto(purchase)).apply {
             isPadding = false; isSpacing = true
             style["padding"] = "var(--lumo-space-m) 0"

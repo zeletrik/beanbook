@@ -28,10 +28,8 @@ private const val MAX_IMPORT_BYTES = 20 * 1024 * 1024
 /**
  * Settings view exposing data export, import, and user preferences such as the display currency.
  *
- * Laid out as the same rounded "cards" used by the Analytics dashboard (see [AnalyticsPanel.section] /
- * its icon circle) so Settings reads as part of the same product. The card + icon-circle styling is
- * duplicated locally to keep the change to one file; a shared `ui/UiComponents.kt` would be a
- * reasonable follow-up to de-duplicate it.
+ * Laid out with the shared card language (`UiComponents.sectionCard` / `pageHeader` / `iconCircle`) so it
+ * reads as part of the same product as the rest of the app.
  */
 class SettingsView(
     private val exportService: ExportService,

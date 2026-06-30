@@ -300,17 +300,7 @@ class AnalyticsPanel(
         }
     }
 
-    private fun iconCircle(icon: VaadinIcon, color: String, iconSize: String, circleSize: String): Div =
-        Div(Icon(icon).apply {
-            style["color"] = color
-            style["width"] = iconSize; style["height"] = iconSize
-        }).apply {
-            style["width"] = circleSize; style["height"] = circleSize
-            style["border-radius"] = "50%"
-            style["background"] = "${color}1a"
-            style["display"] = "flex"; style["align-items"] = "center"; style["justify-content"] = "center"
-            style["flex-shrink"] = "0"
-        }
+    // iconCircle is the shared one in UiComponents.kt (also fixes the var()-color tint via color-mix).
 
     private fun buildSpendChart(data: List<MonthlySpend>) {
         spendChartContainer.removeAll()
