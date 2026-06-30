@@ -12,6 +12,7 @@ import eu.zeletrik.beanbook.backup.ExportService
 import eu.zeletrik.beanbook.backup.ImportService
 import eu.zeletrik.beanbook.security.SecurityProperties
 import com.vaadin.flow.spring.security.AuthenticationContext
+import org.springframework.boot.info.BuildProperties
 import tools.jackson.module.kotlin.jacksonObjectMapper
 
 /**
@@ -27,12 +28,13 @@ internal fun testMainView(
     aiExtractionService: AiExtractionService? = null,
     securityProperties: SecurityProperties? = null,
     authenticationContext: AuthenticationContext? = null,
+    buildProperties: BuildProperties? = null,
 ): MainView {
     val service = BeanPurchaseService(repo)
     val exportService = ExportService(service, wishlist, jacksonObjectMapper())
     return MainView(
         service, AnalyticsService(), exportService, importService, prefs, wishlist,
-        aiExtractionService, securityProperties, authenticationContext,
+        aiExtractionService, securityProperties, authenticationContext, buildProperties,
     )
 }
 

@@ -20,6 +20,7 @@ import com.vaadin.flow.component.textfield.TextField
 import com.vaadin.flow.data.value.ValueChangeMode
 import com.vaadin.flow.router.Route
 import com.vaadin.flow.spring.security.AuthenticationContext
+import org.springframework.boot.info.BuildProperties
 import eu.zeletrik.beanbook.ai.AiExtractionService
 import eu.zeletrik.beanbook.analytics.AnalyticsService
 import eu.zeletrik.beanbook.backup.ExportService
@@ -55,6 +56,9 @@ class MainView(
     private val securityProperties: SecurityProperties? = null,
     // Vaadin's logout helper; present when security is on the classpath. Nullable for Karibu tests.
     private val authenticationContext: AuthenticationContext? = null,
+    // App build metadata (from META-INF/build-info.properties). Present in a real boot run; nullable so
+    // Karibu tests (no Spring context / no build-info) can construct the view — the version chip is then hidden.
+    private val buildProperties: BuildProperties? = null,
 ) : VerticalLayout() {
 
     internal val cardsLayout = Div().apply {
@@ -386,8 +390,12 @@ class MainView(
             onCurrencyChanged = { refreshView() },
             securityEnabled = securityProperties?.enabled == true,
             onLogout = { authenticationContext?.logout() },
+            // Shown as a muted chip in the Settings header; null in tests/dev → chip hidden.
+            appVersion = buildProperties?.version,
         )
-        val scrollable = VerticalLayout(H2("Settings"), settingsView).apply {
+        // SettingsView owns its own "Settings" header (with the version chip), so the page is just the
+        // scrollable view itself.
+        val scrollable = VerticalLayout(settingsView).apply {
             isPadding = true; isSpacing = true; width = "100%"
         }
         return VerticalLayout(scrollable).apply {
