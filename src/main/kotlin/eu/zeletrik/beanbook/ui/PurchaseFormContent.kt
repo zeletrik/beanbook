@@ -523,6 +523,9 @@ class PurchaseFormContent(
         clearAiMarks()
         clearUploadState()
         roasterField.setItems(getAllRoasters())
+        // Seed the tag items (incl. this purchase's own tags) BEFORE setting the bean: the binder pushes
+        // the value into the MultiSelectComboBox on setBean, and it rejects values absent from its items.
+        tagsField.setItems(getAllTags() + purchase.tags)
         binder.bean = PurchaseFormBean().apply {
             name = purchase.name
             roaster = purchase.roaster
@@ -545,7 +548,6 @@ class PurchaseFormContent(
             tags = purchase.tags
             url = purchase.url ?: ""
         }
-        tagsField.setItems(getAllTags())
         if (purchase.imageData != null) {
             currentImageDisplay.setSrc(
                 com.vaadin.flow.server.streams.InputStreamDownloadHandler { _ ->
@@ -596,6 +598,8 @@ class PurchaseFormContent(
         pendingImageData = source.imageData
         roastProfileField.value = source.roastProfile
         binder.bean.usedAs = source.usedAs
+        // Ensure the source's tags are valid items before selecting them (see openForEdit).
+        tagsField.setItems(getAllTags() + source.tags)
         tagsField.value = source.tags
         // The product/roaster link is profile data — a re-purchase points at the same page.
         linkField.value = source.url ?: ""

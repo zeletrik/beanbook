@@ -1,5 +1,7 @@
 package eu.zeletrik.beanbook.ui
 
+import com.vaadin.flow.component.Text
+import com.vaadin.flow.component.html.Anchor
 import com.vaadin.flow.component.html.Div
 import com.vaadin.flow.component.html.Image
 import com.vaadin.flow.component.html.Span
@@ -14,7 +16,41 @@ import eu.zeletrik.beanbook.beans.BeanPurchase
 internal fun beanCard(purchase: BeanPurchase, currency: String, onOpen: () -> Unit): HorizontalLayout {
     val thumbnail = beanCardThumbnail(purchase)
     val details = beanCardDetails(purchase, currency)
-    return HorizontalLayout(thumbnail, details).apply {
+    // Right side: state badge pinned top, product-link icon (if any) pinned bottom — both right-aligned.
+    val horiz = HorizontalLayout().apply {
+        isPadding = false; isSpacing = false
+        style["gap"] = "0.75rem"
+        width = "auto"; style["flex-shrink"] = "0"; style["align-self"] = "stretch"
+        style["align-items"] = "flex-start"; style["justify-content"] = "space-between"
+        add(bagStateBadge(purchase.bagState, small = true))
+        purchase.url.toHref()?.let { href ->
+            add(
+                Span(beanCardLinkIcon(href)).apply {
+                    style["flex-shrink"] = "0"
+                }
+            )
+        }
+    }
+    val rightCol = VerticalLayout().apply {
+        isPadding = false; isSpacing = false
+        width = "auto"; style["flex-shrink"] = "0"; style["align-self"] = "stretch"
+        style["align-items"] = "flex-end"; style["justify-content"] = "space-between"
+        add(horiz)
+    }
+    val ratingText = purchase.rating.toStars()
+    if (ratingText.isNotEmpty()) {
+        rightCol.add(Span(ratingText).apply {
+            style["font-size"] = "0.85rem"; style["letter-spacing"] = "0.04rem"
+        })
+    }
+
+    // Centred disclosure chevron signalling the whole row is tappable.
+    val chevron = Icon(VaadinIcon.ANGLE_RIGHT).apply {
+        setSize("1.5rem"); style["color"] = "var(--lumo-tertiary-text-color)"
+        style["flex-shrink"] = "0"
+        element.setAttribute("aria-hidden", "true")
+    }
+    return HorizontalLayout(thumbnail, details, rightCol, chevron).apply {
         addClassName("bean-row")
         isSpacing = false; isPadding = true
         style["align-items"] = "center"; style["gap"] = "0.75rem"
@@ -53,19 +89,27 @@ private fun beanCardThumbnail(purchase: BeanPurchase): Div =
         }
     }
 
+/**
+ *
+ *         HorizontalLayout(
+ *             Icon(icon).apply {
+ *                 setSize("1rem")
+ *                 style["color"] = "var(--lumo-secondary-text-color)"
+ *                 style["flex"] = "0 0 auto"
+ *                 element.setAttribute("aria-hidden", "true")
+ *             },
+ *             Span(text).apply {
+ *                 style["color"] = "var(--lumo-secondary-text-color)"
+ *                 style["overflow-wrap"] = "anywhere"
+ *             },
+ *         ).apply {
+ *             isPadding = false; isSpacing = false
+ *             style["gap"] = "0.4rem"
+ *             style["align-items"] = "center"
+ *         }
+ */
+
 private fun beanCardDetails(purchase: BeanPurchase, currency: String): VerticalLayout {
-    val stateBadge = bagStateBadge(purchase.bagState, small = true)
-    val bottomRow = HorizontalLayout().apply {
-        isSpacing = true; isPadding = false
-        style["align-items"] = "center"; style["flex-wrap"] = "wrap"; style["gap"] = "0.3rem"
-    }
-    val ratingText = purchase.rating.toStars()
-    if (ratingText.isNotEmpty()) {
-        bottomRow.add(Span(ratingText).apply {
-            style["font-size"] = "0.85rem"; style["letter-spacing"] = "0.04rem"
-        })
-    }
-    bottomRow.add(stateBadge)
     return VerticalLayout().apply {
         isPadding = false; isSpacing = false
         style["gap"] = "0.15rem"; style["flex"] = "1"; style["overflow"] = "hidden"
@@ -74,17 +118,54 @@ private fun beanCardDetails(purchase: BeanPurchase, currency: String): VerticalL
             style["font-weight"] = "600"; style["font-size"] = "var(--lumo-font-size-m)"
             style["overflow"] = "hidden"; style["text-overflow"] = "ellipsis"; style["white-space"] = "nowrap"
         })
-        add(Span(purchase.roaster).apply {
-            style["color"] = "var(--lumo-secondary-text-color)"; style["font-size"] = "var(--lumo-font-size-s)"
-            style["overflow"] = "hidden"; style["text-overflow"] = "ellipsis"; style["white-space"] = "nowrap"
-        })
-        add(Span(purchase.originLabel()).apply {
-            style["color"] = "var(--lumo-secondary-text-color)"; style["font-size"] = "var(--lumo-font-size-s)"
-            style["overflow"] = "hidden"; style["text-overflow"] = "ellipsis"; style["white-space"] = "nowrap"
-        })
+        add(metaLine(VaadinIcon.SHOP, purchase.roaster))
+        add(metaLine(VaadinIcon.MAP_MARKER, purchase.originLabel()))
         add(Span("${purchase.price.formatPrice(currency)}  ·  ${purchase.weightGrams} g").apply {
             style["font-size"] = "var(--lumo-font-size-s)"; style["color"] = "var(--lumo-secondary-text-color)"
         })
-        add(bottomRow)
     }
 }
+
+/**
+ * Creates a horizontal layout containing an icon and text styled as metadata information.
+ * The layout is configured with secondary text color, small font size, and automatic text overflow handling.
+ * The icon is sized to match the font size and marked as decorative with aria-hidden attribute.
+ *
+ * @param icon The Vaadin icon to display at the start of the layout
+ * @param text The text content to display next to the icon
+ * @return A configured HorizontalLayout with the icon and text arranged horizontally with minimal spacing
+ */
+private fun metaLine(icon: VaadinIcon, text: String): HorizontalLayout =
+    HorizontalLayout(
+        Icon(icon).apply {
+            setSize("var(--lumo-font-size-s)")
+            style["color"] = "var(--lumo-secondary-text-color)"
+            style["flex"] = "0 0 auto"
+            element.setAttribute("aria-hidden", "true")
+        },
+        Span(text).apply {
+            style["color"] = "var(--lumo-secondary-text-color)"; style["font-size"] = "var(--lumo-font-size-s)"
+            style["overflow"] = "hidden"; style["text-overflow"] = "ellipsis"; style["white-space"] = "nowrap"
+        },
+    ).apply {
+        isPadding = false; isSpacing = false
+        style["gap"] = "0.4rem"
+        style["align-items"] = "center"
+    }
+
+/**
+ * The product link rendered as a small external-link icon. Opens in a new tab; its click is stopped
+ * from bubbling so tapping it doesn't also trigger the card's open-detail handler.
+ */
+private fun beanCardLinkIcon(href: String): Anchor =
+    Anchor(href, "").apply {
+        setTarget("_blank")
+        element.setAttribute("rel", "noopener noreferrer")
+        element.setAttribute("aria-label", "Open product link")
+        element.setAttribute("title", "Open product link")
+        style["display"] = "inline-flex"; style["align-items"] = "center"; style["flex-shrink"] = "0"
+        add(Icon(VaadinIcon.INFO_CIRCLE).apply {
+            setSize("0.95rem"); style["color"] = "var(--lumo-primary-text-color)"
+        })
+        element.addEventListener("click") { }.stopPropagation()
+    }
