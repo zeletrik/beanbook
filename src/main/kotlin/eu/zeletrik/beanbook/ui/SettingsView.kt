@@ -6,9 +6,7 @@ import com.vaadin.flow.component.button.ButtonVariant
 import com.vaadin.flow.component.html.Anchor
 import com.vaadin.flow.component.html.Div
 import com.vaadin.flow.component.html.H2
-import com.vaadin.flow.component.html.H3
 import com.vaadin.flow.component.html.Span
-import com.vaadin.flow.component.icon.Icon
 import com.vaadin.flow.component.icon.VaadinIcon
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout
 import com.vaadin.flow.component.orderedlayout.VerticalLayout
@@ -123,7 +121,7 @@ class SettingsView(
             }
         }
 
-        return settingsCard(
+        return sectionCard(
             VaadinIcon.DATABASE, "#2e7d9c",
             "Data", "Back up your collection or restore it from a file.",
             controlWithHelper(exportAnchor, "Download everything as a JSON file."),
@@ -149,7 +147,7 @@ class SettingsView(
                 }
             }
         }
-        return settingsCard(
+        return sectionCard(
             VaadinIcon.COG, "#7c4dff",
             "Preferences", "Personalise how Bean Book looks and behaves.",
             currencySelect,
@@ -171,7 +169,7 @@ class SettingsView(
             style["min-height"] = "44px"
             style["align-self"] = "flex-start"
         }
-        return settingsCard(
+        return sectionCard(
             VaadinIcon.LOCK, "#c25e00",
             "Security", "Manage passkeys for this device, or sign out.",
             controlWithHelper(managePasskeys, "Add this device as a passkey, or remove existing ones."),
@@ -179,47 +177,7 @@ class SettingsView(
         )
     }
 
-    // ── Card builders (mirrors AnalyticsPanel.section / iconCircle) ──
-
-    private fun settingsCard(
-        icon: VaadinIcon,
-        iconColor: String,
-        title: String,
-        description: String,
-        vararg content: Component,
-    ): Div {
-        val heading = VerticalLayout(
-            H3(title).apply { style["margin"] = "0"; style["font-size"] = "var(--lumo-font-size-m)" },
-            Span(description).apply {
-                style["color"] = "var(--lumo-secondary-text-color)"; style["font-size"] = "var(--lumo-font-size-s)"
-            },
-        ).apply { isPadding = false; isSpacing = false; style["gap"] = "0.1rem"; style["min-width"] = "0" }
-        val header = HorizontalLayout(iconCircle(icon, iconColor), heading).apply {
-            isPadding = false; isSpacing = true; width = "100%"; style["align-items"] = "center"
-        }
-        val body = VerticalLayout(*content).apply {
-            isPadding = false; isSpacing = false; style["gap"] = "0.85rem"
-            width = "100%"; style["align-items"] = "flex-start"
-        }
-        return Div(header, body).apply {
-            style["display"] = "flex"; style["flex-direction"] = "column"; style["gap"] = "0.85rem"
-            style["width"] = "100%"; style["box-sizing"] = "border-box"
-            style["padding"] = "1rem"
-            style["border-radius"] = "var(--lumo-border-radius-l)"
-            style["background"] = "var(--lumo-base-color)"
-            style["box-shadow"] = "0 1px 4px rgba(0,0,0,0.08)"
-        }
-    }
-
-    private fun iconCircle(icon: VaadinIcon, color: String): Div =
-        Div(Icon(icon).apply {
-            style["color"] = color; style["width"] = "1.4rem"; style["height"] = "1.4rem"
-        }).apply {
-            style["width"] = "2.2rem"; style["height"] = "2.2rem"; style["border-radius"] = "50%"
-            style["background"] = "${color}1a"
-            style["display"] = "flex"; style["align-items"] = "center"; style["justify-content"] = "center"
-            style["flex-shrink"] = "0"
-        }
+    // Card + icon-circle styling lives in UiComponents.kt (shared with the purchase form).
 
     /** A control with a small muted helper line beneath it. */
     private fun controlWithHelper(control: Component, helper: String): Div =

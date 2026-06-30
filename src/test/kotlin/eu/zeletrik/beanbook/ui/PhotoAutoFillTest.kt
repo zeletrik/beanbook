@@ -84,10 +84,10 @@ class PhotoAutoFillTest {
     }
 
     @Test
-    fun `the photo section leads the form and is open on create`() {
+    fun `the photo section leads the form`() {
         val form = formWith(stubService(BeanExtraction(name = "X")))
-        assertTrue(form.photoDetails.isOpened, "Photo opens on create so the upload + auto-fill lead")
-        assertEquals(0, form.indexOf(form.photoDetails), "Photo should be the first element of the form")
+        assertTrue(form.photoSection.isVisible, "Photo card leads the form so the upload + auto-fill are up front")
+        assertEquals(0, form.indexOf(form.photoSection), "Photo should be the first element of the form")
     }
 
     @Test
@@ -133,7 +133,6 @@ class PhotoAutoFillTest {
         assertEquals(250, form.weightField.value)
         assertEquals("12.5", form.priceField.value)
         assertEquals("blueberry, floral", form.notesField.value)
-        assertTrue(form.tastingDetails.isOpened, "Notes were filled, so the tasting section is revealed")
         assertEquals(LocalDate.of(2024, 3, 15), form.roastDateField.value)
         assertTrue(form.roastDateField.hasClassName("ai-suggested"))
     }
