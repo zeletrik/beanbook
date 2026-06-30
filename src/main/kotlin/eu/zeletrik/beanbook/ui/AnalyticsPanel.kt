@@ -37,11 +37,16 @@ class AnalyticsPanel(
     internal val monthlyCostValue = Span()
 
     private val spendChartContainer = VerticalLayout().apply { isPadding = false; isSpacing = false; width = "100%" }
-    private val originBarsContainer = VerticalLayout().apply { isPadding = false; isSpacing = false; style["gap"] = "0.4rem" }
-    private val beanSpendContainer = VerticalLayout().apply { isPadding = false; isSpacing = false; style["gap"] = "0.25rem" }
-    private val roasterSpendContainer = VerticalLayout().apply { isPadding = false; isSpacing = false; style["gap"] = "0.25rem" }
-    private val brewMethodContainer = VerticalLayout().apply { isPadding = false; isSpacing = false; style["gap"] = "0.4rem" }
-    private val profileContainer = VerticalLayout().apply { isPadding = false; isSpacing = false; style["gap"] = "0.5rem"; width = "100%" }
+    private val originBarsContainer =
+        VerticalLayout().apply { isPadding = false; isSpacing = false; style["gap"] = "0.4rem" }
+    private val beanSpendContainer =
+        VerticalLayout().apply { isPadding = false; isSpacing = false; style["gap"] = "0.25rem" }
+    private val roasterSpendContainer =
+        VerticalLayout().apply { isPadding = false; isSpacing = false; style["gap"] = "0.25rem" }
+    private val brewMethodContainer =
+        VerticalLayout().apply { isPadding = false; isSpacing = false; style["gap"] = "0.4rem" }
+    private val profileContainer =
+        VerticalLayout().apply { isPadding = false; isSpacing = false; style["gap"] = "0.5rem"; width = "100%" }
 
     // All stats live in contentLayout; emptyState replaces it when there are no purchases.
     private val contentLayout = VerticalLayout().apply { isPadding = false; isSpacing = true; width = "100%" }
@@ -91,21 +96,15 @@ class AnalyticsPanel(
         statsGrid.add(statCard(VaadinIcon.TRENDING_UP, "var(--lumo-primary-color)", "Avg. Price", avgCostValue))
         statsGrid.add(statCard(VaadinIcon.GLOBE, "#2e7d9c", "Top Origin", topOriginValue))
         statsGrid.add(statCard(VaadinIcon.TROPHY, "#e6a817", "Priciest Bean", priceyBeanValue))
-        statsGrid.add(statCard(VaadinIcon.SHOP, "#7c4dff", "Top Roaster", priceyRoasterValue))
+        statsGrid.add(statCard(VaadinIcon.SHOP, "#7c4dff", "Priciest Roaster", priceyRoasterValue))
         statsGrid.add(statCard(VaadinIcon.TIMER, "#2e8b57", "Avg. Pace", avgPaceValue))
         statsGrid.add(statCard(VaadinIcon.CALENDAR, "#c25e00", "Monthly Cost", monthlyCostValue))
-
-        // Spend by Bean / Roaster share one row (two equal-height columns).
-        val spendByRow = twoColumnGrid().apply {
-            add(section("Spend by Bean", beanSpendContainer))
-            add(section("Spend by Roaster", roasterSpendContainer))
-        }
 
         // ── Breakdown sections ─────────────────────────────────
         contentLayout.add(heroCard, statsGrid)
         contentLayout.add(section("Spend over time", spendChartContainer))
         contentLayout.add(section("Origins", originBarsContainer))
-        contentLayout.add(spendByRow)
+        contentLayout.add(section("Spend by Roaster", roasterSpendContainer))
         contentLayout.add(section("Brew Method", brewMethodContainer))
         contentLayout.add(section("Purchased by Profile", profileContainer))
         add(contentLayout, emptyState)
@@ -149,7 +148,8 @@ class AnalyticsPanel(
         // Update secondary price in priceyBeanValue's parent (stored sibling span not needed — just set as subtitle)
         priceyRoasterValue.text = analyticsService.mostExpensiveRoaster(purchases) ?: "—"
         avgPaceValue.text = analyticsService.averagePaceDays(purchases)?.let { "${it.toInt()} days" } ?: "—"
-        monthlyCostValue.text = analyticsService.projectedMonthlyCost(purchases)?.formatPrice(getCurrency())?.let { "$it/mo" } ?: "—"
+        monthlyCostValue.text =
+            analyticsService.projectedMonthlyCost(purchases)?.formatPrice(getCurrency())?.let { "$it/mo" } ?: "—"
 
         // Spend-over-time bar chart
         buildSpendChart(analyticsService.spendByMonth(purchases))
@@ -170,16 +170,26 @@ class AnalyticsPanel(
 
         // Brew Method section
         brewMethodContainer.removeAll()
-        val spendByBrew  = analyticsService.spendByBrewMethod(purchases)
-        val countByBrew  = analyticsService.countByBrewMethod(purchases)
-        val paceByBrew   = analyticsService.paceByBrewMethod(purchases)
+        val spendByBrew = analyticsService.spendByBrewMethod(purchases)
+        val countByBrew = analyticsService.countByBrewMethod(purchases)
+        val paceByBrew = analyticsService.paceByBrewMethod(purchases)
 
-        listOf(BrewMethod.ESPRESSO to "Espresso", BrewMethod.FILTER to "Filter", BrewMethod.UNCLASSIFIED to "Unclassified").forEach { (method, label) ->
+        listOf(
+            BrewMethod.ESPRESSO to "Espresso",
+            BrewMethod.FILTER to "Filter",
+            BrewMethod.UNCLASSIFIED to "Unclassified"
+        ).forEach { (method, label) ->
             val spend = spendByBrew[method] ?: BigDecimal.ZERO
             val count = countByBrew[method] ?: 0
-            val pace  = paceByBrew[method]
+            val pace = paceByBrew[method]
             val paceText = if (pace != null) "${pace.toInt()} days" else "—"
-            val row = buildBrewMethodRow(label, spend.formatPrice(getCurrency()), count, paceText, method != BrewMethod.UNCLASSIFIED)
+            val row = buildBrewMethodRow(
+                label,
+                spend.formatPrice(getCurrency()),
+                count,
+                paceText,
+                method != BrewMethod.UNCLASSIFIED
+            )
             brewMethodContainer.add(row)
         }
 
@@ -187,13 +197,23 @@ class AnalyticsPanel(
         val countByProfile = analyticsService.countByRoastProfile(purchases)
         val maxProfileCount = countByProfile.values.maxOrNull()?.takeIf { it > 0 } ?: 1
         profileContainer.removeAll()
-        listOf(RoastProfile.ESPRESSO to "Espresso", RoastProfile.FILTER to "Filter", RoastProfile.OMNI to "Omni").forEach { (profile, label) ->
+        listOf(
+            RoastProfile.ESPRESSO to "Espresso",
+            RoastProfile.FILTER to "Filter",
+            RoastProfile.OMNI to "Omni"
+        ).forEach { (profile, label) ->
             val count = countByProfile[profile] ?: 0
             profileContainer.add(fullWidthBar(label, count, maxProfileCount, "$count bags"))
         }
     }
 
-    private fun buildBrewMethodRow(label: String, spend: String, count: Int, pace: String, showPace: Boolean): HorizontalLayout {
+    private fun buildBrewMethodRow(
+        label: String,
+        spend: String,
+        count: Int,
+        pace: String,
+        showPace: Boolean
+    ): HorizontalLayout {
         val labelSpan = Span(label).apply {
             style["font-size"] = "var(--lumo-font-size-m)"; style["font-weight"] = "600"
         }
@@ -324,9 +344,10 @@ class AnalyticsPanel(
                 style["height"] = "${maxBarPx}px"; style["width"] = "100%"
                 style["display"] = "flex"; style["align-items"] = "flex-end"; style["justify-content"] = "center"
             }
-            val valueLbl = Span(if (total > BigDecimal.ZERO) "$currency${total.setScale(0, RoundingMode.HALF_UP)}" else "").apply {
-                style["font-size"] = "var(--lumo-font-size-xs)"; style["color"] = "var(--lumo-secondary-text-color)"
-            }
+            val valueLbl =
+                Span(if (total > BigDecimal.ZERO) "$currency${total.setScale(0, RoundingMode.HALF_UP)}" else "").apply {
+                    style["font-size"] = "var(--lumo-font-size-xs)"; style["color"] = "var(--lumo-secondary-text-color)"
+                }
             val monthLbl = Span(month.month.getDisplayName(TextStyle.SHORT, Locale.getDefault())).apply {
                 style["font-size"] = "var(--lumo-font-size-xs)"; style["color"] = "var(--lumo-secondary-text-color)"
             }
@@ -339,7 +360,12 @@ class AnalyticsPanel(
                 // Text alternative for screen readers (the bars convey value by height alone).
                 element.setAttribute(
                     "aria-label",
-                    "${month.month.getDisplayName(TextStyle.FULL, Locale.getDefault())} ${month.year}: ${total.formatPrice(currency)}",
+                    "${
+                        month.month.getDisplayName(
+                            TextStyle.FULL,
+                            Locale.getDefault()
+                        )
+                    } ${month.year}: ${total.formatPrice(currency)}",
                 )
             }
         }

@@ -74,7 +74,11 @@ private fun beanCardDetails(purchase: BeanPurchase, currency: String): VerticalL
             style["font-weight"] = "600"; style["font-size"] = "var(--lumo-font-size-m)"
             style["overflow"] = "hidden"; style["text-overflow"] = "ellipsis"; style["white-space"] = "nowrap"
         })
-        add(Span("${purchase.roaster}  ·  ${purchase.originLabel()}").apply {
+        add(Span(purchase.roaster).apply {
+            style["color"] = "var(--lumo-secondary-text-color)"; style["font-size"] = "var(--lumo-font-size-s)"
+            style["overflow"] = "hidden"; style["text-overflow"] = "ellipsis"; style["white-space"] = "nowrap"
+        })
+        add(Span(purchase.originLabel()).apply {
             style["color"] = "var(--lumo-secondary-text-color)"; style["font-size"] = "var(--lumo-font-size-s)"
             style["overflow"] = "hidden"; style["text-overflow"] = "ellipsis"; style["white-space"] = "nowrap"
         })
