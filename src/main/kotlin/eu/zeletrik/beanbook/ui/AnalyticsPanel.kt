@@ -41,8 +41,10 @@ class AnalyticsPanel(
         VerticalLayout().apply { isPadding = false; isSpacing = false; style["gap"] = "0.4rem" }
     private val roasterSpendContainer =
         VerticalLayout().apply { isPadding = false; isSpacing = false; style["gap"] = "0.25rem" }
-    private val brewMethodContainer =
+    private val brewSpendContainer =
         VerticalLayout().apply { isPadding = false; isSpacing = false; style["gap"] = "0.4rem" }
+    private val brewPaceContainer =
+        VerticalLayout().apply { isPadding = false; isSpacing = false; style["gap"] = "0.25rem" }
     private val profileContainer =
         VerticalLayout().apply { isPadding = false; isSpacing = false; style["gap"] = "0.5rem"; width = "100%" }
 
@@ -103,7 +105,10 @@ class AnalyticsPanel(
         contentLayout.add(section("Spend over time", spendChartContainer))
         contentLayout.add(section("Origins", originBarsContainer))
         contentLayout.add(section("Spend by Roaster", roasterSpendContainer))
-        contentLayout.add(section("Brew Method", brewMethodContainer))
+        contentLayout.add(section("Spend by Brew Method", brewSpendContainer))
+        contentLayout.add(
+            section("Pace by Brew Method", brewPaceContainer, subtitle = "Avg. days from opening to finishing a bag"),
+        )
         contentLayout.add(section("Purchased by Profile", profileContainer))
         add(contentLayout, emptyState)
     }
@@ -132,7 +137,8 @@ class AnalyticsPanel(
             spendChartContainer.removeAll()
             originBarsContainer.removeAll()
             roasterSpendContainer.removeAll()
-            brewMethodContainer.removeAll()
+            brewSpendContainer.removeAll()
+            brewPaceContainer.removeAll()
             profileContainer.removeAll()
             return
         }
@@ -164,29 +170,24 @@ class AnalyticsPanel(
         // Spend by roaster list
         buildSpendList(roasterSpendContainer, analyticsService.totalSpendByRoaster(purchases))
 
-        // Brew Method section
-        brewMethodContainer.removeAll()
+        // Spend by Brew Method — full-width bars proportional to spend, like Origins / Profile.
         val spendByBrew = analyticsService.spendByBrewMethod(purchases)
-        val countByBrew = analyticsService.countByBrewMethod(purchases)
-        val paceByBrew = analyticsService.paceByBrewMethod(purchases)
-
+        val maxBrewSpend = spendByBrew.values.maxOrNull() ?: BigDecimal.ZERO
+        brewSpendContainer.removeAll()
         listOf(
             BrewMethod.ESPRESSO to "Espresso",
             BrewMethod.FILTER to "Filter",
-            BrewMethod.UNCLASSIFIED to "Unclassified"
+            BrewMethod.UNCLASSIFIED to "Unclassified",
         ).forEach { (method, label) ->
             val spend = spendByBrew[method] ?: BigDecimal.ZERO
-            val count = countByBrew[method] ?: 0
-            val pace = paceByBrew[method]
-            val paceText = if (pace != null) "${pace.toInt()} days" else "—"
-            val row = buildBrewMethodRow(
-                label,
-                spend.formatPrice(getCurrency()),
-                count,
-                paceText,
-                method != BrewMethod.UNCLASSIFIED
-            )
-            brewMethodContainer.add(row)
+            brewSpendContainer.add(fullWidthBar(label, spend, maxBrewSpend, spend.formatPrice(getCurrency())))
+        }
+
+        // Pace by Brew Method — its own labelled counter (only methods that track open→finish: espresso, filter).
+        val paceByBrew = analyticsService.paceByBrewMethod(purchases)
+        brewPaceContainer.removeAll()
+        listOf(BrewMethod.ESPRESSO to "Espresso", BrewMethod.FILTER to "Filter").forEach { (method, label) ->
+            brewPaceContainer.add(paceRow(label, paceByBrew[method]))
         }
 
         // Purchased by Profile — its own full-width card (bag counts as full-width bars)
@@ -203,37 +204,25 @@ class AnalyticsPanel(
         }
     }
 
-    private fun buildBrewMethodRow(
-        label: String,
-        spend: String,
-        count: Int,
-        pace: String,
-        showPace: Boolean
-    ): HorizontalLayout {
+    /**
+     * One row of the "Pace by Brew Method" counter: the method label at the left edge and the average
+     * days-to-finish at the right. A null [paceDays] (no opened-and-finished bags for that method yet)
+     * shows a muted em dash.
+     */
+    private fun paceRow(label: String, paceDays: BigDecimal?): HorizontalLayout {
         val labelSpan = Span(label).apply {
-            style["font-size"] = "var(--lumo-font-size-m)"; style["font-weight"] = "600"
+            style["font-size"] = "var(--lumo-font-size-m)"; style["flex"] = "1"; style["min-width"] = "0"
+            style["overflow"] = "hidden"; style["text-overflow"] = "ellipsis"; style["white-space"] = "nowrap"
         }
-        val spendSpan = Span(spend).apply {
-            style["font-weight"] = "600"
-            style["font-size"] = "var(--lumo-font-size-m)"
-            style["color"] = "var(--lumo-primary-color)"
+        val valueSpan = Span(paceDays?.let { "${it.toInt()} days" } ?: "—").apply {
+            style["font-weight"] = "600"; style["font-size"] = "var(--lumo-font-size-m)"; style["white-space"] = "nowrap"
+            style["color"] = if (paceDays != null) "var(--lumo-primary-color)" else "var(--lumo-secondary-text-color)"
         }
-        val countSpan = Span("${count}×").apply {
-            style["font-size"] = "var(--lumo-font-size-s)"
-            style["color"] = "var(--lumo-secondary-text-color)"
-        }
-        val paceSpan = Span(if (showPace) pace else "").apply {
-            style["font-size"] = "var(--lumo-font-size-s)"
-            style["color"] = "var(--lumo-secondary-text-color)"
-        }
-        // Metrics grouped at the right edge; label at the left edge (uses both ends of the row).
-        val metrics = HorizontalLayout(spendSpan, countSpan, paceSpan).apply {
-            isPadding = false; isSpacing = true; style["align-items"] = "baseline"
-        }
-        return HorizontalLayout(labelSpan, metrics).apply {
+        return HorizontalLayout(labelSpan, valueSpan).apply {
             isSpacing = true; isPadding = false
             style["width"] = "100%"; style["align-items"] = "center"
-            style["justify-content"] = "space-between"; style["padding"] = "0.4rem 0"
+            style["justify-content"] = "space-between"; style["padding"] = "0.5rem 0"
+            style["border-bottom"] = "1px solid var(--lumo-contrast-5pct)"
         }
     }
 
@@ -278,6 +267,12 @@ class AnalyticsPanel(
         valueSpan.apply {
             style["font-weight"] = "700"
             style["font-size"] = "var(--lumo-font-size-l)"
+            // display:block + width:100% + min-width:0 give the span a width bound inside the column flex
+            // so a long value (e.g. a roaster name like "DAK Coffee Roasters") ellipsizes instead of
+            // overflowing the tile — without it the span takes its content width and just gets clipped.
+            style["display"] = "block"
+            style["width"] = "100%"
+            style["min-width"] = "0"
             style["overflow"] = "hidden"
             style["text-overflow"] = "ellipsis"
             style["white-space"] = "nowrap"
@@ -371,16 +366,26 @@ class AnalyticsPanel(
         })
     }
 
+    /** Integer-valued bar (counts), e.g. origins and profile bag totals. */
+    private fun fullWidthBar(label: String, value: Int, max: Int, valueText: String): Div =
+        fullWidthBar(label, percentOf(value.toDouble(), max.toDouble()), value > 0, valueText)
+
+    /** Money-valued bar (spend), proportional to [value]/[max]. */
+    private fun fullWidthBar(label: String, value: BigDecimal, max: BigDecimal, valueText: String): Div =
+        fullWidthBar(label, percentOf(value.toDouble(), max.toDouble()), value.signum() > 0, valueText)
+
+    private fun percentOf(value: Double, max: Double): Int = if (max > 0) (value / max * 100).toInt() else 0
+
     /**
      * Full-width bar that uses both ends of the card: [label] sits at the left edge, [valueText] at
-     * the right edge, and a fill proportional to [value]/[max] runs behind them across the row.
+     * the right edge, and a fill of [fillPct] runs behind them across the row. [nonZero] gives a tiny
+     * minimum fill so a present-but-small value is still visible.
      */
-    private fun fullWidthBar(label: String, value: Int, max: Int, valueText: String): Div {
-        val pct = if (max > 0) (value.toDouble() / max * 100).toInt() else 0
+    private fun fullWidthBar(label: String, fillPct: Int, nonZero: Boolean, valueText: String): Div {
         val fill = Div().apply {
             style["position"] = "absolute"
             style["left"] = "0"; style["top"] = "0"; style["bottom"] = "0"
-            style["width"] = "$pct%"; style["min-width"] = if (value > 0) "0.5rem" else "0"
+            style["width"] = "$fillPct%"; style["min-width"] = if (nonZero) "0.5rem" else "0"
             style["background"] = "var(--lumo-primary-color-50pct)"
         }
         val labelSpan = Span(label).apply {
@@ -430,7 +435,7 @@ class AnalyticsPanel(
         }
     }
 
-    private fun section(title: String, content: VerticalLayout): VerticalLayout =
+    private fun section(title: String, content: VerticalLayout, subtitle: String? = null): VerticalLayout =
         VerticalLayout().apply {
             isPadding = false; isSpacing = false; style["gap"] = "0.5rem"; width = "100%"
             add(H3(title).apply { style["margin"] = "0.5rem 0 0 0"; style["font-size"] = "var(--lumo-font-size-m)" })
@@ -448,6 +453,14 @@ class AnalyticsPanel(
                 // reads as intentional; taller content (the chart) simply grows past the floor.
                 style["min-height"] = "150px"
                 style["display"] = "flex"; style["flex-direction"] = "column"; style["justify-content"] = "center"
+                // Optional one-line clarifier under the title, inside the card, so an at-a-glance metric
+                // like pace explains its unit without a legend.
+                subtitle?.let {
+                    add(Span(it).apply {
+                        style["font-size"] = "var(--lumo-font-size-xs)"; style["color"] = "var(--lumo-secondary-text-color)"
+                        style["display"] = "block"; style["margin-bottom"] = "0.5rem"
+                    })
+                }
                 content.width = "100%"
                 add(content)
             })
