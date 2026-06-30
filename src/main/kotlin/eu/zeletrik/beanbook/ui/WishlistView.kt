@@ -2,7 +2,6 @@ package eu.zeletrik.beanbook.ui
 
 import com.vaadin.flow.component.button.Button
 import com.vaadin.flow.component.button.ButtonVariant
-import com.vaadin.flow.component.details.Details
 import com.vaadin.flow.component.dialog.Dialog
 import com.vaadin.flow.component.html.Anchor
 import com.vaadin.flow.component.html.Div
@@ -51,9 +50,14 @@ class WishlistView(private val wishlistService: WishlistService) : VerticalLayou
         add(Span("Add beans you want to try").apply {
             style["color"] = "var(--lumo-secondary-text-color)"; style["font-size"] = "var(--lumo-font-size-s)"
         })
+        add(Button("Add your first wishlist bean") { openAddDialog() }.apply {
+            setId("wishlist-empty-cta")
+            addThemeVariants(ButtonVariant.LUMO_PRIMARY)
+            style["margin-top"] = "0.5rem"
+        })
     }
 
-    // Add form fields
+    // Add form fields (live inside the add dialog, opened on demand).
     private val nameField = TextField("Name *").apply { setId("wishlist-name"); width = "100%" }
     private val roasterField = TextField("Roaster").apply { setId("wishlist-roaster"); width = "100%" }
     private val originField = TextField("Origin").apply { setId("wishlist-origin"); width = "100%" }
@@ -64,17 +68,23 @@ class WishlistView(private val wishlistService: WishlistService) : VerticalLayou
         isClearButtonVisible = true
     }
 
-    init {
-        setSizeFull(); isPadding = true; isSpacing = true
+    /** Built once and reused; opening focuses entry without the list losing its place. */
+    private val addDialog: Dialog by lazy { buildAddDialog() }
 
-        // Collapsible so the form doesn't occupy half the screen when browsing the list (collapsed
-        // by default; the field ids stay reachable for tests because a collapse is client-side only).
-        val addForm = Details("Add to wishlist", buildAddFormBody()).apply {
-            setId("wishlist-add-section")
-            isOpened = false
-            width = "100%"
+    init {
+        setSizeFull(); isPadding = true; isSpacing = false; style["gap"] = "0.75rem"
+
+        val header = HorizontalLayout(
+            H2("Wishlist").apply { style["margin"] = "0" },
+            Button("Add", Icon(VaadinIcon.PLUS)) { openAddDialog() }.apply {
+                setId("wishlist-open-add-btn")
+                addThemeVariants(ButtonVariant.LUMO_PRIMARY)
+            },
+        ).apply {
+            width = "100%"; isPadding = false; isSpacing = false
+            style["align-items"] = "center"; style["justify-content"] = "space-between"
         }
-        add(addForm)
+        add(header)
 
         val scrollArea = Div(itemsContainer, emptyState).apply {
             setSizeFull(); style["overflow-y"] = "auto"; style["flex"] = "1"
@@ -85,13 +95,32 @@ class WishlistView(private val wishlistService: WishlistService) : VerticalLayou
         refreshList()
     }
 
-    private fun buildAddFormBody(): VerticalLayout = VerticalLayout().apply {
-        isPadding = false; isSpacing = false; style["gap"] = "0.5rem"; width = "100%"
-        add(nameField, roasterField, originField, urlField, notesField)
-        add(Button("Add") { addItem() }.apply {
-            setId("wishlist-add-btn")
-            addThemeVariants(ButtonVariant.LUMO_PRIMARY)
+    private fun buildAddDialog(): Dialog = Dialog().apply {
+        setId("wishlist-add-dialog")
+        headerTitle = "Add to wishlist"
+        width = "min(92vw, 26rem)"
+        isCloseOnEsc = true
+        add(VerticalLayout(nameField, roasterField, originField, urlField, notesField).apply {
+            isPadding = false; isSpacing = false; style["gap"] = "0.5rem"; width = "100%"
         })
+        footer.add(
+            Button("Cancel") { close() }.apply { setId("wishlist-cancel-add-btn") },
+            Button("Add") { addItem() }.apply {
+                setId("wishlist-add-btn")
+                addThemeVariants(ButtonVariant.LUMO_PRIMARY)
+            },
+        )
+    }
+
+    /** Opens the add form as a focused modal, with all fields reset. */
+    internal fun openAddDialog(): Dialog {
+        nameField.value = ""
+        roasterField.value = ""
+        originField.value = ""
+        notesField.value = ""
+        urlField.value = ""
+        addDialog.open()
+        return addDialog
     }
 
     private fun addItem() {
@@ -109,11 +138,7 @@ class WishlistView(private val wishlistService: WishlistService) : VerticalLayou
                 notes = notesField.value.trim().takeIf { it.isNotBlank() },
                 url = urlField.value.toHref(),
             ))
-            nameField.value = ""
-            roasterField.value = ""
-            originField.value = ""
-            notesField.value = ""
-            urlField.value = ""
+            addDialog.close()
             refreshList()
         } catch (e: Exception) {
             log.error("Failed to add wishlist item '{}'", name, e)
@@ -135,50 +160,71 @@ class WishlistView(private val wishlistService: WishlistService) : VerticalLayou
     }
 
     private fun buildItemRow(item: WishlistItem): HorizontalLayout {
-        val nameSpan = Span(item.name).apply {
-            style["font-weight"] = "600"; style["font-size"] = "var(--lumo-font-size-m)"
-            style["overflow"] = "hidden"; style["text-overflow"] = "ellipsis"; style["white-space"] = "nowrap"
+        val thumbnail = Div(Icon(VaadinIcon.COFFEE).apply {
+            setSize("2rem"); style["color"] = "var(--lumo-tertiary-text-color)"
+            element.setAttribute("aria-hidden", "true")
+        }).apply {
+            style["width"] = "72px"; style["min-width"] = "72px"; style["height"] = "72px"
+            style["border-radius"] = "var(--lumo-border-radius-m)"
+            style["background"] = "var(--lumo-contrast-5pct)"
+            style["display"] = "flex"; style["align-items"] = "center"; style["justify-content"] = "center"
+            style["flex-shrink"] = "0"
         }
-        // Clickable content area opens the detail dialog; the delete button (a sibling) stays separate
-        // so tapping it doesn't also open the detail.
+
         val details = VerticalLayout().apply {
             setId("wishlist-open-${item.id}")
-            isPadding = false; isSpacing = false; style["gap"] = "0.1rem"
+            isPadding = false; isSpacing = false; style["gap"] = "0.15rem"
             style["flex"] = "1"; style["overflow"] = "hidden"; style["min-width"] = "0"
-            style["cursor"] = "pointer"
-            add(nameSpan)
-            secondaryLine(item)?.let { add(it) }
+            style["align-items"] = "stretch"; style["cursor"] = "pointer"
+            add(Span(item.name).apply {
+                style["font-weight"] = "600"; style["font-size"] = "var(--lumo-font-size-m)"
+                style["display"] = "block"; style["min-width"] = "0"
+                style["overflow"] = "hidden"; style["text-overflow"] = "ellipsis"; style["white-space"] = "nowrap"
+            })
+            if (item.roaster.isNotBlank()) add(metaLine(VaadinIcon.SHOP, item.roaster))
+            if (item.origin.isNotBlank()) add(metaLine(VaadinIcon.MAP_MARKER, item.origin))
             if (!item.notes.isNullOrBlank()) add(notesPreview(item.notes))
             item.url.toHref()?.let { add(linkChip(it)) }
             addClickListener { openDetail(item) }
+        }
+
+        val chevron = Icon(VaadinIcon.ANGLE_RIGHT).apply {
+            setSize("1.5rem"); style["color"] = "var(--lumo-tertiary-text-color)"
+            style["flex-shrink"] = "0"; element.setAttribute("aria-hidden", "true")
         }
         val deleteBtn = Button(Icon(VaadinIcon.TRASH)) { confirmDelete(item) }.apply {
             setId("wishlist-delete-${item.id}")
             addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL)
             element.setAttribute("aria-label", "Delete ${item.name}")
+            style["flex-shrink"] = "0"
         }
-        return HorizontalLayout(details, deleteBtn).apply {
-            isSpacing = true; isPadding = true; width = "100%"
-            style["align-items"] = "center"
+
+        return HorizontalLayout(thumbnail, details, chevron, deleteBtn).apply {
+            isSpacing = false; isPadding = true; width = "100%"
+            style["gap"] = "0.75rem"; style["align-items"] = "center"
             style["border-radius"] = "var(--lumo-border-radius-l)"
             style["background"] = "var(--lumo-base-color)"
             style["box-shadow"] = "0 1px 4px rgba(0,0,0,0.08)"
+            style["border"] = "1px solid var(--lumo-contrast-10pct)"
         }
     }
 
-    private fun secondaryLine(item: WishlistItem): Span? {
-        val text = buildString {
-            if (item.roaster.isNotBlank()) append(item.roaster)
-            if (item.roaster.isNotBlank() && item.origin.isNotBlank()) append("  ·  ")
-            if (item.origin.isNotBlank()) append(item.origin)
+    /** Icon + ellipsized text line for roaster/origin — mirrors the Beans list rows. */
+    private fun metaLine(icon: VaadinIcon, text: String): HorizontalLayout =
+        HorizontalLayout(
+            Icon(icon).apply {
+                setSize("var(--lumo-font-size-s)"); style["color"] = "var(--lumo-secondary-text-color)"
+                style["flex"] = "0 0 auto"; element.setAttribute("aria-hidden", "true")
+            },
+            Span(text).apply {
+                style["color"] = "var(--lumo-secondary-text-color)"; style["font-size"] = "var(--lumo-font-size-s)"
+                style["flex"] = "1"; style["min-width"] = "0"
+                style["overflow"] = "hidden"; style["text-overflow"] = "ellipsis"; style["white-space"] = "nowrap"
+            },
+        ).apply {
+            isPadding = false; isSpacing = false; style["gap"] = "0.4rem"
+            style["align-items"] = "center"; width = "100%"; style["min-width"] = "0"; style["overflow"] = "hidden"
         }
-        if (text.isBlank()) return null
-        return Span(text).apply {
-            style["color"] = "var(--lumo-secondary-text-color)"
-            style["font-size"] = "var(--lumo-font-size-s)"
-            style["overflow"] = "hidden"; style["text-overflow"] = "ellipsis"; style["white-space"] = "nowrap"
-        }
-    }
 
     private fun notesPreview(notes: String): Span = Span(notes).apply {
         style["color"] = "var(--lumo-secondary-text-color)"
@@ -235,6 +281,21 @@ class WishlistView(private val wishlistService: WishlistService) : VerticalLayou
         dialog.add(VerticalLayout(body, actions).apply { isPadding = false; isSpacing = false; width = "100%" })
         dialog.open()
         return dialog
+    }
+
+    /** Compact "roaster · origin" subtitle used inside the detail dialog. */
+    private fun secondaryLine(item: WishlistItem): Span? {
+        val text = buildString {
+            if (item.roaster.isNotBlank()) append(item.roaster)
+            if (item.roaster.isNotBlank() && item.origin.isNotBlank()) append("  ·  ")
+            if (item.origin.isNotBlank()) append(item.origin)
+        }
+        if (text.isBlank()) return null
+        return Span(text).apply {
+            style["color"] = "var(--lumo-secondary-text-color)"
+            style["font-size"] = "var(--lumo-font-size-s)"
+            style["overflow"] = "hidden"; style["text-overflow"] = "ellipsis"; style["white-space"] = "nowrap"
+        }
     }
 
     private fun confirmDelete(item: WishlistItem) {
